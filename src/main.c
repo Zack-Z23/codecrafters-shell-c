@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
     else if(strcmp(cmd, "type") == 0){
       char *arg  = strtok(NULL, " ");
         if(isBuiltIn(arg)){
-            printf("%s is a shell buitlin\n", arg);
+            printf("%s is a shell builtin\n", arg);
         }
         else{
             printf("%s: not found\n", arg);
