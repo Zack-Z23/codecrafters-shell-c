@@ -24,10 +24,8 @@ int main(int argc, char *argv[]) {
     if(strcmp(cmd, "exit") == 0){
         break;
     }
-    else if (strcmp(cmd, "echo") == 0){
-        char *arg = strtok(NULL, " ");
-        if(arg) printf("%s\n", arg);
-        else printf("\n");
+    else if (strncmp(cmd, "echo ", 5) == 0){
+        printf("%s\n", input + 5);
     }
     else if(strcmp(cmd, "type") == 0){
       char *arg  = strtok(NULL, " ");
