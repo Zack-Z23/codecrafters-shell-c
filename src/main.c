@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
         else printf("\n");
     }
     else if(strcmp(cmd, "type") == 0){
-      const *arg  = strtok(NULL, " ");
+      char *arg  = strtok(NULL, " ");
         if(isBuiltIn(arg)){
             printf("%s is shell buitlin\n", arg);
         }
