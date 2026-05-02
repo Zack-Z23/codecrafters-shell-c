@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
   char command[1024];
     while(1){
     printf("$ ");
-    fgets(input, sizeof(input), stdin);
+    fgets(command, sizeof(input), stdin);
 
     command[strcspn(command, "\n")] = '\0';
 
