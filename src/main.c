@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
     printf("$ ")
     fgets(input, sizeof(input), stdin);
 
-    command[strcpn(command, "\n")] = '\0';
+    command[strcspn(command, "\n")] = '\0';
 
     char *cmd = strtok(command, " ");
 
