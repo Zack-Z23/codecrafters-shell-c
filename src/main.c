@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
     if(strcmp(cmd, "exit") == 0){
         break;
     }
-    else if (strncmp(cmd, "echo ", 5) == 0){
+    else if (strncmp(cmd, "echo", 5) == 0){
         printf("%s\n", cmd + 5);
     }
     else if(strcmp(cmd, "type") == 0){
