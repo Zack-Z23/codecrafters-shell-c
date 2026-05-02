@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
         break;
     }
     else if (strncmp(cmd, "echo ", 5) == 0){
-        printf("%s\n", input + 5);
+        printf("%s\n", cmd + 5);
     }
     else if(strcmp(cmd, "type") == 0){
       char *arg  = strtok(NULL, " ");
