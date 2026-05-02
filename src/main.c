@@ -8,14 +8,19 @@ int main(int argc, char *argv[]) {
   char command[1024];
   while(1){
   printf("$ ");
-
   fgets(command, sizeof(command), stdin);
+
   command[strcspn(command, "\n")] = '\0';
   printf("%s: command not found\n", command);
 
-  if(strcmp(command, "exit") == 0){
+ if(strcmp(command, "exit") == 0){
 
     break;
+
+  }
+  else{
+    command[strcspn(command, "\n")] = '\0';
+    printf("%s: command not found\n", command);
 
   }
 }
