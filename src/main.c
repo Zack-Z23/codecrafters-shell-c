@@ -8,7 +8,7 @@ int main(int argc, char *argv[]) {
   fget(command, sizeof(command), stdin);
   command[strcspn(command, "\n")] = '\0';
   if(command != " "){
-    printf("%s: command not found", command)
+    printf("%s: command not found", command);
   }
   printf("$ ");
 
