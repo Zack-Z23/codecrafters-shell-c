@@ -2,24 +2,45 @@
 #include <stdlib.h>
 #include <string.h>
 
+int isBuiltIn(const char *temp){
+    return strcmp(cmd, "echo") == 0 ||
+           strcmp(cmd, "exit") == 0 ||
+           strcmp(cmd, "type") == 0;
+}
+
 int main(int argc, char *argv[]) {
-  // Flush after every printf
   setbuf(stdout, NULL);
   char command[1024];
-  while(1){
-  printf("$ ");
-  fgets(command, sizeof(command), stdin);
-  command[strlen(command) - 1] = '\0';
-  if(strcmp(command, "exit") == 0){
-    break;
+    while(1){
+    printf("$ ")
+    fgets(input, sizeof(input), stdin);
 
-  }
-  else if(strncmp(command, "echo ", 5) == 0){
-  printf("%s\n", command + 5);
-  }
-  else{
-    printf("%s: command not found\n", command);
-  }
-}
+    command[strcpn(command, "\n")] = '\0';
+
+    char *cmd = strtok(command, " ");
+
+    if(cmd == NULL) continue;
+
+    if(strcmp(cmd, "exit") == 0){
+        break;
+    }
+    else if (strcmp(cmd, "echo") == 0){
+        char *arg = strtok(NULL, " ");
+        if(arg) printf("%s\n". arg);
+        else printf("\n");
+    }
+    else if(strcmp(cmd, "type") == 0){
+        if(isBuiltIn(arg)){
+            printf("%s is shell buitlin\n", arg);
+        }
+        else{
+            printf("%s: not found\n", arg);
+        }
+    }
+    else{
+        printf("%s: not found\n", cmd); 
+    }
+
+    }
   return 0;
 }
