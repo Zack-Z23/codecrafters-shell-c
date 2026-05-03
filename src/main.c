@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
         pid_t pid = fork();
 
         if(pid == 0){
-            execv(full_path, args);
+            execv(full_path, arg);
 
             perror("execv");
             exit(1);
