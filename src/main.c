@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
         while((token = strtok(NULL, " ")) != NULL){
             arg[i++] = token;
         }
-
+        arg[i] = NULL;
         char *path_env = getenv("PATH");
         if(!path_env){
             printf("%s: not found\n", arg);
