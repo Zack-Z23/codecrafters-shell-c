@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
             printf("cd: %s: No such file or directory\n", arg);
         }
 
-        }
+        
         else if(arg[0] == '~'){
             if(chdir(arg))
         }
