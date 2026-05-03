@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
+
 
 int isBuiltIn(const char *temp){
     return strcmp(temp, "echo") == 0 ||
@@ -62,7 +64,58 @@ int main(int argc, char *argv[]) {
         }
     }
     else{
-        printf("%s: not found\n", cmd);
+        char *args[100];
+        int i = 0
+
+        arg[i++] = cmd;
+        char *token;
+
+        while((token == strtok(NULL, " ")) != NULL){
+            arg[i++] = token;
+        }
+
+        char *path_env = getenv("PATH");
+        if(!path_env){
+            printf("%s: not found\n", arg);
+            continue;
+        }
+
+        char path_copy[4096];
+        strncpy(path_copy, path_env, sizeof(path_copy));
+        path_copy[sizeof(path_copy) - 1] = "\0";
+
+        char *dir = strtok(path_copy, ":");
+        char full_path[4096];
+        int found = 0;
+
+        while(dir != NULL){
+            snprintf(full_path, sizeof(full_path), "%s/%s", dir, arg);
+
+            if(access(full_path, X_OK) == 0){
+                found = 1;
+                break;
+            }
+            dir = strtok(NULL, ":");
+        }
+        if(!found){
+            printf("%s: not found\n", cmd);
+            continue;
+        }
+
+        pid_t pid = fork();
+
+        if(pid == 0){
+            execv(full_path, args);
+
+            perror("execv");
+            exit(1);
+        }
+        else{
+            waitpid(pid, NULL, 0);
+        }
+
+
+
     }
 
     }
