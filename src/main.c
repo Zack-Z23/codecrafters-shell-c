@@ -29,8 +29,35 @@ int main(int argc, char *argv[]) {
     }
     else if(strcmp(cmd, "type") == 0){
       char *arg  = strtok(NULL, " ");
-        if(isBuiltIn(arg)){
+        if(!arg) continue;
+        else if(isBuiltIn(arg)){
             printf("%s is a shell builtin\n", arg);
+            continue;
+        }
+
+        char *path_env = getenv("PATH");
+        if(!path_env){
+            printf("%s: not found\n", arg);
+            continue;
+        }
+
+        char path_copy[4096];
+        strncpy(path_copy, path_env, sizeof(path_copy));
+        char *dir = strtok(path_copy, ":");
+        while(dir != NULL){
+            char full_path[4096];
+            snprintf(full_path, sizeof(full_path), "%s/%s", dir, arg);
+
+            if(access(full_path, X_OK) == 0){
+                printf("%s is %s\n", arg, full_path);
+                break;
+            }
+
+            dir = strtok(NULL, ":");
+        }
+
+        if(dir == NULL){
+            printf("%s: not found\n", arg);
         }
         else{
             printf("%s: not found\n", arg);
