@@ -73,6 +73,21 @@ int main(int argc, char *argv[]) {
         }        
 
     }
+    else if(strcmp(cmd, "cd") == 0){
+        char *arg = strtok(NULL, " ");
+
+        if(arg == NULL){
+            continue;
+        }
+
+        if(arg[0] == '/'){
+            if(chdir(arg) != 0){
+                printf("cd: %s: No such file or directory\n", arg);
+            }
+
+        }
+
+    }
     else{
         char *arg[100];
         int i = 0;
