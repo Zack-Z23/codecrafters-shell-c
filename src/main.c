@@ -77,14 +77,27 @@ int main(int argc, char *argv[]) {
         char *arg = strtok(NULL, " ");
 
         if(arg == NULL){
+            char *home =  getenv("HOME");
+            if(home == NULL || chdir(home) != 0){
+                printf("cd: %s: No such file or directory\n", arg);
+            }
             continue;
         }
 
-        if(arg[0] == '/'){
-            if(chdir(arg) != 0){
+        if(strcmp(arg, "~") == 0){
+            char *home = getenv("HOME");
+            if(home ==NULL || chdir(home) != 0){
                 printf("cd: %s: No such file or directory\n", arg);
             }
+            continue;
+        }
+        if(chdir(arg) != 0){
+            printf("cd: %s: No such file or directory\n", arg);
+        }
 
+        }
+        else if(arg[0] == '~'){
+            if(chdir(arg))
         }
 
     }
