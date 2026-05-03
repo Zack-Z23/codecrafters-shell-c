@@ -8,7 +8,8 @@
 int isBuiltIn(const char *temp){
     return strcmp(temp, "echo") == 0 ||
            strcmp(temp, "exit") == 0 ||
-           strcmp(temp, "type") == 0;
+           strcmp(temp, "type") == 0 ||
+           strcmp(temp, "pwd");
 }
 
 int main(int argc, char *argv[]) {
