@@ -63,6 +63,15 @@ int main(int argc, char *argv[]) {
             printf("%s: not found\n", arg);
         }
     }
+    else if (strncmp(cmd, "pwd") == 0){
+        char cwd[4096];
+
+        if(getcwd(cwd, sizeof(cwd)) != NULL){
+
+            printf("%s", cwd);
+        }        
+
+    }
     else{
         char *arg[100];
         int i = 0;
