@@ -64,13 +64,13 @@ int main(int argc, char *argv[]) {
         }
     }
     else{
-        char *args[100];
-        int i = 0
+        char *arg[100];
+        int i = 0;
 
         arg[i++] = cmd;
         char *token;
 
-        while((token == strtok(NULL, " ")) != NULL){
+        while((token = strtok(NULL, " ")) != NULL){
             arg[i++] = token;
         }
 
@@ -82,14 +82,14 @@ int main(int argc, char *argv[]) {
 
         char path_copy[4096];
         strncpy(path_copy, path_env, sizeof(path_copy));
-        path_copy[sizeof(path_copy) - 1] = "\0";
+        path_copy[sizeof(path_copy) - 1] = '\0';
 
         char *dir = strtok(path_copy, ":");
         char full_path[4096];
         int found = 0;
 
         while(dir != NULL){
-            snprintf(full_path, sizeof(full_path), "%s/%s", dir, arg);
+            snprintf(full_path, sizeof(full_path), "%s/%s", dir, cmd);
 
             if(access(full_path, X_OK) == 0){
                 found = 1;
