@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 int isBuiltIn(const char *temp){
     return strcmp(temp, "echo") == 0 ||
@@ -57,9 +58,6 @@ int main(int argc, char *argv[]) {
         }
 
         if(dir == NULL){
-            printf("%s: not found\n", arg);
-        }
-        else{
             printf("%s: not found\n", arg);
         }
     }
