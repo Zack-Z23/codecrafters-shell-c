@@ -31,6 +31,13 @@ int main(int argc, char *argv[]) {
             char *arg = strtok(NULL, "");
             if(arg){
                 if(*arg == ' ') arg++;
+
+                size_t len = strlen(arg);
+                if(len >= 2 && (arg[0] =='\'' && arg[len-1] == '\'') || (arg[0] =='"' && arg[len-1] == '"')){
+                    arg[len-1] = '\0';
+                    arg++;
+                }
+
                 printf("%s\n", arg);
             } 
             else printf("\n");
