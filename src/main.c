@@ -37,6 +37,17 @@ int main(int argc, char *argv[]) {
                     arg[len-1] = '\0';
                     arg++;
                 }
+                else{
+                    char *word = strtok(arg, " ");
+                    int first = 1;
+                    while(word != NULL){
+                        if(!first) printf(" ");
+                        printf("%s", word);
+                        first = 0;
+                        word = strtok(NULL, " ");
+                    }
+                    printf("\n");
+                }
 
                 printf("%s\n", arg);
             } 
