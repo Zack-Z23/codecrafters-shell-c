@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 int parseArgs(char *input, char **args, int max_args) {
     int argc = 0;
@@ -50,6 +51,25 @@ int parseArgs(char *input, char **args, int max_args) {
     args[argc] = NULL;
     return argc;
 }
+char *extractedRedirect(char **args, int n){
+    for (int i = 0; i < *n; i++){
+        if(strcmp(args[i], ">") == 0 || strcmp(args[i], "1>") == 0){
+            if(i + 1 < *n){
+                char *file = args[i+1];
+                free(args[i]);
+
+                for(int j = i; j < *n -2; j++){
+                    args[j] = args[j+2];
+
+                }
+                *n -= 2;
+                args[*n] = NULL;
+                return file;
+            } 
+        }
+    }
+
+}
 
 int isBuiltIn(const char *temp){
     return strcmp(temp, "echo") == 0 ||
@@ -78,11 +98,28 @@ int main(int argc, char *argv[]) {
             break;
         }
         else if(strcmp(cmd, "echo") == 0){
-            for(int j = 1; j < n; j++){
-                if(j > 1) printf(" ");
+            char *outfile = extractedRedirect(args, &n);
+            int save_fd = -1;
+
+            if(outfile){
+                save_fd = dup(STDOUT_FILENO);
+                int fd = open(outfile, O_WRONLY | O_GREAT | O_TRUNC, 0644);
+                dup2(fd, STDOUT_FILENO);
+                close(fd);
+                free(outfile);
+            }
+
+            for(int i = 0; j < n; j++){
+                if( j > 1) printf(" ");
                 printf("%s", args[j]);
             }
             printf("\n");
+            fflush(stdout);
+
+            if(saved_fd != -1){
+                dup2(saved_fd, STDOUT_FILENO);
+                close(saved_fd);
+            }
         }
         else if(strcmp(cmd, "type") == 0){
             if(n < 2){ for(int j=0;j<n;j++) free(args[j]); continue; }
