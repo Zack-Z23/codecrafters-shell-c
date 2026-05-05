@@ -36,6 +36,7 @@ int main(int argc, char *argv[]) {
                 if(len >= 2 && (arg[0] =='\'' && arg[len-1] == '\'') || (arg[0] =='"' && arg[len-1] == '"')){
                     arg[len-1] = '\0';
                     arg++;
+                    printf("%s\n", arg);
                 }
                 else{
                     char *saveptr;
@@ -50,7 +51,6 @@ int main(int argc, char *argv[]) {
                     printf("\n");
                 }
 
-                printf("%s\n", arg);
             } 
             else printf("\n");
         }
