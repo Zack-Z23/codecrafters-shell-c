@@ -16,7 +16,11 @@ int parseArgs(char *input, char **args, int max_args) {
         int buf_i = 0;
 
         while(input[i] != '\0') {
-            if(input[i] == '\'') {
+            if(input[i] == '\\') {
+                i++;
+                if(input[i] != '\0')
+                    buf[buf_i++] = input[i++];
+            } else if(input[i] == '\'') {
                 i++;
                 while(input[i] != '\0' && input[i] != '\'')
                     buf[buf_i++] = input[i++];
@@ -27,7 +31,7 @@ int parseArgs(char *input, char **args, int max_args) {
                     buf[buf_i++] = input[i++];
                 if(input[i] == '"') i++;
             } else if(input[i] == ' ') {
-                break;  // unquoted space = end of token
+                break;
             } else {
                 buf[buf_i++] = input[i++];
             }
