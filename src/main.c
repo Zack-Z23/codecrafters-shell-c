@@ -31,27 +31,39 @@ int main(int argc, char *argv[]) {
             char *arg = strtok(NULL, "");
             if(arg){
                 if(*arg == ' ') arg++;
-
-                size_t len = strlen(arg);
-                if(len >= 2 && (arg[0] =='\'' && arg[len-1] == '\'') || (arg[0] =='"' && arg[len-1] == '"')){
-                    arg[len-1] = '\0';
-                    arg++;
-                    printf("%s\n", arg);
-                }
-                else{
-                    char *saveptr;
-                    char *word = strtok_r(arg, " ", &saveptr);
-                    int first = 1;
-                    while(word != NULL){
-                        if(!first) printf(" ");
-                        printf("%s", word);
-                        first = 0;
-                        word = strtok_r(NULL, " ", &saveptr);
+        
+                char output[1024] = {0};
+                int out_i = 0;
+                int i = 0;
+        
+                while(arg[i] != '\0'){
+                    if(arg[i] == ' '){
+                        if(out_i > 0 && output[out_i-1] != ' '){
+                            output[out_i++] = ' ';
+                        }
+                        i++;
+                    } else if(arg[i] == '\''){
+                        i++;
+                        while(arg[i] != '\0' && arg[i] != '\''){
+                            output[out_i++] = arg[i++];
+                        }
+                        if(arg[i] == '\'') i++;
+                    } else if(arg[i] == '"'){
+                        i++;
+                        while(arg[i] != '\0' && arg[i] != '"'){
+                            output[out_i++] = arg[i++];
+                        }
+                        if(arg[i] == '"') i++;
+                    } else {
+                        output[out_i++] = arg[i++];
                     }
-                    printf("\n");
                 }
-
-            } 
+        
+         if(out_i > 0 && output[out_i-1] == ' ') out_i--;
+                output[out_i] = '\0';
+    
+            printf("%s\n", output);
+         } 
             else printf("\n");
         }
         else if(strcmp(cmd, "type") == 0){
