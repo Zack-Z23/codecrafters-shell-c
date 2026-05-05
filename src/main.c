@@ -27,8 +27,14 @@ int parseArgs(char *input, char **args, int max_args) {
                 if(input[i] == '\'') i++;
             } else if(input[i] == '"') {
                 i++;
-                while(input[i] != '\0' && input[i] != '"')
-                    buf[buf_i++] = input[i++];
+                while(input[i] != '\0' && input[i] != '"'){
+                    if(input[i] == '\\' && (input[i+1] == '\\' || input[i+1] == '"')){
+                        i++;
+                        buf[buf_i++] = input[i++];
+                    } else {
+                        buf[buf_i++] = input[i++];
+                    }
+                }
                 if(input[i] == '"') i++;
             } else if(input[i] == ' ') {
                 break;
