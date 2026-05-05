@@ -51,24 +51,22 @@ int parseArgs(char *input, char **args, int max_args) {
     args[argc] = NULL;
     return argc;
 }
-char *extractedRedirect(char **args, int n){
-    for (int i = 0; i < *n; i++){
+
+char *extractRedirect(char **args, int *n){
+    for(int i = 0; i < *n; i++){
         if(strcmp(args[i], ">") == 0 || strcmp(args[i], "1>") == 0){
             if(i + 1 < *n){
                 char *file = args[i+1];
                 free(args[i]);
-
-                for(int j = i; j < *n -2; j++){
+                for(int j = i; j < *n - 2; j++)
                     args[j] = args[j+2];
-
-                }
                 *n -= 2;
                 args[*n] = NULL;
                 return file;
-            } 
+            }
         }
     }
-
+    return NULL;
 }
 
 int isBuiltIn(const char *temp){
@@ -98,27 +96,27 @@ int main(int argc, char *argv[]) {
             break;
         }
         else if(strcmp(cmd, "echo") == 0){
-            char *outfile = extractedRedirect(args, &n);
+            char *outfile = extractRedirect(args, &n);
             int save_fd = -1;
 
             if(outfile){
                 save_fd = dup(STDOUT_FILENO);
-                int fd = open(outfile, O_WRONLY | O_GREAT | O_TRUNC, 0644);
+                int fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
                 dup2(fd, STDOUT_FILENO);
                 close(fd);
                 free(outfile);
             }
 
-            for(int i = 0; j < n; j++){
-                if( j > 1) printf(" ");
+            for(int j = 1; j < n; j++){
+                if(j > 1) printf(" ");
                 printf("%s", args[j]);
             }
             printf("\n");
             fflush(stdout);
 
-            if(saved_fd != -1){
-                dup2(saved_fd, STDOUT_FILENO);
-                close(saved_fd);
+            if(save_fd != -1){
+                dup2(save_fd, STDOUT_FILENO);
+                close(save_fd);
             }
         }
         else if(strcmp(cmd, "type") == 0){
@@ -160,6 +158,7 @@ int main(int argc, char *argv[]) {
                 printf("cd: %s: No such file or directory\n", target ? target : "");
         }
         else {
+            char *outfile = extractRedirect(args, &n);
             char *path_env = getenv("PATH");
             if(!path_env){ printf("%s: not found\n", cmd); }
             else {
@@ -179,6 +178,11 @@ int main(int argc, char *argv[]) {
                 } else {
                     pid_t pid = fork();
                     if(pid == 0){
+                        if(outfile){
+                            int fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                            dup2(fd, STDOUT_FILENO);
+                            close(fd);
+                        }
                         execv(full_path, args);
                         perror("execv");
                         exit(1);
@@ -187,6 +191,7 @@ int main(int argc, char *argv[]) {
                     }
                 }
             }
+            if(outfile) free(outfile);
         }
 
         for(int j = 0; j < n; j++) free(args[j]);
