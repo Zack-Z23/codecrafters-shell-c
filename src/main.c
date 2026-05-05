@@ -29,7 +29,10 @@ int main(int argc, char *argv[]) {
         }
         else if(strcmp(cmd, "echo") == 0){
             char *arg = strtok(NULL, "");
-            if(arg) printf("%s\n", arg);
+            if(arg){
+                if(*arg == ' ') arg++;
+                printf("%s\n", arg);
+            } 
             else printf("\n");
         }
         else if(strcmp(cmd, "type") == 0){
