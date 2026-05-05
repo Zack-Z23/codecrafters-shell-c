@@ -38,13 +38,14 @@ int main(int argc, char *argv[]) {
                     arg++;
                 }
                 else{
-                    char *word = strtok(arg, " ");
+                    char *saveptr;
+                    char *word = strtok_r(arg, " ", &saveptr);
                     int first = 1;
                     while(word != NULL){
                         if(!first) printf(" ");
                         printf("%s", word);
                         first = 0;
-                        word = strtok(NULL, " ");
+                        word = strtok_r(NULL, " ", &saveptr);
                     }
                     printf("\n");
                 }
