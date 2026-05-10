@@ -59,7 +59,7 @@ char *extractRedirect(char **args, int *n, int *target_fd, int *append) {
             fd = STDOUT_FILENO;
         else if(strcmp(args[i], "2>") == 0)
             fd = STDERR_FILENO;
-        else if(strcmp(args[i], ">>") == 0){
+        else if(strcmp(args[i], ">>") == 0 || strcmp(args[i], "1>>") == 0){
             fd = STDOUT_FILENO;
             *append = 1;
         }
