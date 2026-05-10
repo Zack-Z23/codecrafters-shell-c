@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
                 printf("cd: %s: No such file or directory\n", target ? target : "");
         }
         else if(strcmp(cmd, "ls") == 0){
-            printf("$ ");
+           continue;
         }
         else {
             char *outfile = extractRedirect(args, &n);
