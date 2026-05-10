@@ -129,8 +129,12 @@ int main(int argc, char *argv[]) {
             int fd;
             if(outfile){
                 save_fd = dup(target_fd);
-                if(append == 1)  fd = open(outfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
-                else fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                if(append == 1) {
+                    fd = open(outfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
+                }
+                else {
+                    fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                }
                
                 dup2(fd, target_fd);
                 close(fd);
