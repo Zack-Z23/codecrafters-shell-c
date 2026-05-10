@@ -174,7 +174,8 @@ int main(int argc, char *argv[]) {
         }
         else {
             int target_fd;
-            char *outfile = extractRedirect(args, &n, &target_fd);
+            int append;
+            char *outfile = extractRedirect(args, &n, &target_fd, &append);
 
             char full_path[4096];
             if(!findInPath(cmd, full_path, sizeof(full_path))){
