@@ -52,20 +52,27 @@ int parseArgs(char *input, char **args, int max_args) {
     return argc;
 }
 
-char *extractRedirect(char **args, int *n){
+char *extractRedirect(char **args, int *n, int *target_fd) {
     for(int i = 0; i < *n; i++){
-        if(strcmp(args[i], ">") == 0 || strcmp(args[i], "1>") == 0 || strcmp(args[i], "2>")){
-            if(i + 1 < *n){
-                char *file = args[i+1];
-                free(args[i]);
-                for(int j = i; j < *n - 2; j++)
-                    args[j] = args[j+2];
-                *n -= 2;
-                args[*n] = NULL;
-                return file;
-            }
+        int fd = -1;
+        if(strcmp(args[i], ">") == 0 || strcmp(args[i], "1>") == 0)
+            fd = STDOUT_FILENO;
+        else if(strcmp(args[i], "2>") == 0)
+            fd = STDERR_FILENO;
+
+        if(fd != -1 && i + 1 < *n){
+            char *file = args[i+1];
+            free(args[i]);
+            /* Shift remaining args left by 2 */
+            for(int j = i; j < *n - 2; j++)
+                args[j] = args[j+2];
+            *n -= 2;
+            args[*n] = NULL;
+            *target_fd = fd;
+            return file;
         }
     }
+    *target_fd = -1;
     return NULL;
 }
 
@@ -74,8 +81,23 @@ int isBuiltIn(const char *temp){
            strcmp(temp, "exit") == 0 ||
            strcmp(temp, "type") == 0 ||
            strcmp(temp, "pwd") == 0 ||
-           strcmp(temp, "cat") == 0 ||
-           strcmp(temp, "ls") == 0;
+           strcmp(temp, "cd") == 0;
+}
+
+/* Find full path of cmd in PATH. Returns 1 and fills full_path on success. */
+int findInPath(const char *cmd, char *full_path, size_t size){
+    char *path_env = getenv("PATH");
+    if(!path_env) return 0;
+    char path_copy[4096];
+    strncpy(path_copy, path_env, sizeof(path_copy));
+    path_copy[sizeof(path_copy)-1] = '\0';
+    char *dir = strtok(path_copy, ":");
+    while(dir){
+        snprintf(full_path, size, "%s/%s", dir, cmd);
+        if(access(full_path, X_OK) == 0) return 1;
+        dir = strtok(NULL, ":");
+    }
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -84,7 +106,7 @@ int main(int argc, char *argv[]) {
 
     while(1){
         printf("$ ");
-        fgets(command, sizeof(command), stdin);
+        if(!fgets(command, sizeof(command), stdin)) break;
         command[strcspn(command, "\n")] = '\0';
 
         char *args[100];
@@ -98,13 +120,14 @@ int main(int argc, char *argv[]) {
             break;
         }
         else if(strcmp(cmd, "echo") == 0){
-            char *outfile = extractRedirect(args, &n);
+            int target_fd;
+            char *outfile = extractRedirect(args, &n, &target_fd);
             int save_fd = -1;
 
             if(outfile){
-                save_fd = dup(STDOUT_FILENO);
+                save_fd = dup(target_fd);
                 int fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                dup2(fd, STDOUT_FILENO);
+                dup2(fd, target_fd);
                 close(fd);
                 free(outfile);
             }
@@ -117,7 +140,7 @@ int main(int argc, char *argv[]) {
             fflush(stdout);
 
             if(save_fd != -1){
-                dup2(save_fd, STDOUT_FILENO);
+                dup2(save_fd, target_fd);
                 close(save_fd);
             }
         }
@@ -128,26 +151,11 @@ int main(int argc, char *argv[]) {
             if(isBuiltIn(arg)){
                 printf("%s is a shell builtin\n", arg);
             } else {
-                char *path_env = getenv("PATH");
-                if(!path_env){ printf("%s: not found\n", arg); }
-                else {
-                    char path_copy[4096];
-                    strncpy(path_copy, path_env, sizeof(path_copy));
-                    path_copy[sizeof(path_copy)-1] = '\0';
-                    char *dir = strtok(path_copy, ":");
-                    int found = 0;
-                    while(dir != NULL){
-                        char full_path[4096];
-                        snprintf(full_path, sizeof(full_path), "%s/%s", dir, arg);
-                        if(access(full_path, X_OK) == 0){
-                            printf("%s is %s\n", arg, full_path);
-                            found = 1;
-                            break;
-                        }
-                        dir = strtok(NULL, ":");
-                    }
-                    if(!found) printf("%s: not found\n", arg);
-                }
+                char full_path[4096];
+                if(findInPath(arg, full_path, sizeof(full_path)))
+                    printf("%s is %s\n", arg, full_path);
+                else
+                    printf("%s: not found\n", arg);
             }
         }
         else if(strcmp(cmd, "pwd") == 0){
@@ -159,48 +167,30 @@ int main(int argc, char *argv[]) {
             if(target == NULL || chdir(target) != 0)
                 printf("cd: %s: No such file or directory\n", target ? target : "");
         }
-        else if(strcmp(cmd, "ls") == 0){
-           continue;
-        }
         else {
-            char *outfile = extractRedirect(args, &n);
-            char *path_env = getenv("PATH");
-            if(strcmp(cmd, "cat") == 0 && !path_env){ 
-                printf("ls: not existent: No such file or directory\n");
-            }
-            else if(!path_env){
-                printf("%s: not found\n", cmd);
-            }
-            else {
-                char path_copy[4096];
-                strncpy(path_copy, path_env, sizeof(path_copy));
-                path_copy[sizeof(path_copy)-1] = '\0';
-                char *dir = strtok(path_copy, ":");
-                char full_path[4096];
-                int found = 0;
-                while(dir != NULL){
-                    snprintf(full_path, sizeof(full_path), "%s/%s", dir, cmd);
-                    if(access(full_path, X_OK) == 0){ found = 1; break; }
-                    dir = strtok(NULL, ":");
-                }
-                if(!found){
-                    printf("%s: not found\n", cmd);
-                } else {
-                    pid_t pid = fork();
-                    if(pid == 0){
-                        if(outfile){
-                            int fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                            dup2(fd, STDOUT_FILENO);
-                            close(fd);
-                        }
-                        execv(full_path, args);
-                        perror("execv");
-                        exit(1);
-                    } else {
-                        waitpid(pid, NULL, 0);
+            int target_fd;
+            char *outfile = extractRedirect(args, &n, &target_fd);
+
+            char full_path[4096];
+            if(!findInPath(cmd, full_path, sizeof(full_path))){
+                fprintf(stderr, "%s: not found\n", cmd);
+            } else {
+                pid_t pid = fork();
+                if(pid == 0){
+                    if(outfile){
+                        int fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                        if(fd < 0){ perror("open"); exit(1); }
+                        dup2(fd, target_fd);
+                        close(fd);
                     }
+                    execv(full_path, args);
+                    perror("execv");
+                    exit(1);
+                } else {
+                    waitpid(pid, NULL, 0);
                 }
             }
+
             if(outfile) free(outfile);
         }
 
