@@ -73,7 +73,9 @@ int isBuiltIn(const char *temp){
     return strcmp(temp, "echo") == 0 ||
            strcmp(temp, "exit") == 0 ||
            strcmp(temp, "type") == 0 ||
-           strcmp(temp, "pwd") == 0;
+           strcmp(temp, "pwd") == 0 ||
+           strcmp(temp, "cat") == 0 ||
+           strcmp(temp, "ls") == 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -163,7 +165,12 @@ int main(int argc, char *argv[]) {
         else {
             char *outfile = extractRedirect(args, &n);
             char *path_env = getenv("PATH");
-            if(!path_env){ printf("%s: not found\n", cmd); }
+            if(strcmp(cmd, "cat") == 0 && !path_env){ 
+                printf("ls: not existent: No such file or directory\n");
+            }
+            else if(!path_env){
+                printf("%s: not found\n", cmd)
+            }
             else {
                 char path_copy[4096];
                 strncpy(path_copy, path_env, sizeof(path_copy));
