@@ -52,18 +52,20 @@ int parseArgs(char *input, char **args, int max_args) {
     return argc;
 }
 
-char *extractRedirect(char **args, int *n, int *target_fd) {
+char *extractRedirect(char **args, int *n, int *target_fd, int *append) {
     for(int i = 0; i < *n; i++){
         int fd = -1;
         if(strcmp(args[i], ">") == 0 || strcmp(args[i], "1>") == 0)
             fd = STDOUT_FILENO;
         else if(strcmp(args[i], "2>") == 0)
             fd = STDERR_FILENO;
-
+        else if(strcmp(args[i], ">>") == 0){
+            fd = STDOUT_FILENO;
+            *append = 1;
+        }
         if(fd != -1 && i + 1 < *n){
             char *file = args[i+1];
             free(args[i]);
-            /* Shift remaining args left by 2 */
             for(int j = i; j < *n - 2; j++)
                 args[j] = args[j+2];
             *n -= 2;
@@ -121,12 +123,15 @@ int main(int argc, char *argv[]) {
         }
         else if(strcmp(cmd, "echo") == 0){
             int target_fd;
-            char *outfile = extractRedirect(args, &n, &target_fd);
+            int append = 0;
+            char *outfile = extractRedirect(args, &n, &target_fd, append);
             int save_fd = -1;
-
+            int fd;
             if(outfile){
                 save_fd = dup(target_fd);
-                int fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                if(append == 1)  fd = open(outfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
+                else fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+               
                 dup2(fd, target_fd);
                 close(fd);
                 free(outfile);
