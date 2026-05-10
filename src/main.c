@@ -169,7 +169,7 @@ int main(int argc, char *argv[]) {
                 printf("ls: not existent: No such file or directory\n");
             }
             else if(!path_env){
-                printf("%s: not found\n", cmd)
+                printf("%s: not found\n", cmd);
             }
             else {
                 char path_copy[4096];
