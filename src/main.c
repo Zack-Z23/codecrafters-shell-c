@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
         else if(strcmp(cmd, "echo") == 0){
             int target_fd;
             int append = 0;
-            char *outfile = extractRedirect(args, &n, &target_fd, append);
+            char *outfile = extractRedirect(args, &n, &target_fd, &append);
             int save_fd = -1;
             int fd;
             if(outfile){
