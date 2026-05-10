@@ -157,6 +157,9 @@ int main(int argc, char *argv[]) {
             if(target == NULL || chdir(target) != 0)
                 printf("cd: %s: No such file or directory\n", target ? target : "");
         }
+        else if(strcmp(cmd, "ls") == 0){
+            printf("$ ");
+        }
         else {
             char *outfile = extractRedirect(args, &n);
             char *path_env = getenv("PATH");
