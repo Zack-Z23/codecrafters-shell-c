@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
         }
         else {
             int target_fd;
-            int append;
+            int append = 0;
             char *outfile = extractRedirect(args, &n, &target_fd, &append);
 
             char full_path[4096];
@@ -188,7 +188,12 @@ int main(int argc, char *argv[]) {
                 pid_t pid = fork();
                 if(pid == 0){
                     if(outfile){
-                        int fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                        if(append == 1) {
+                            fd = open(outfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
+                        }
+                        else {
+                            fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                        }
                         if(fd < 0){ perror("open"); exit(1); }
                         dup2(fd, target_fd);
                         close(fd);
