@@ -63,6 +63,10 @@ char *extractRedirect(char **args, int *n, int *target_fd, int *append) {
             fd = STDOUT_FILENO;
             *append = 1;
         }
+        else if(strcmp(args[i], "2>>") == 0){
+            fd = STDERR_FILENO;
+            *append = 1;
+        }
         if(fd != -1 && i + 1 < *n){
             char *file = args[i+1];
             free(args[i]);
