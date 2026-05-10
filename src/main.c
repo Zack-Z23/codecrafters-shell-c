@@ -54,7 +54,7 @@ int parseArgs(char *input, char **args, int max_args) {
 
 char *extractRedirect(char **args, int *n){
     for(int i = 0; i < *n; i++){
-        if(strcmp(args[i], ">") == 0 || strcmp(args[i], "1>") == 0){
+        if(strcmp(args[i], ">") == 0 || strcmp(args[i], "1>") == 0 || strcmp(args[i], "2>")){
             if(i + 1 < *n){
                 char *file = args[i+1];
                 free(args[i]);
