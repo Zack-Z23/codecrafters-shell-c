@@ -110,15 +110,15 @@ static char **shell_completion(const char *text, int start, int end){
             if(dir_len == 0){
                 strcpy(dir_path, "/");
             } else {
-                snprintf(dir_path, sizeof(dir_path), "%.*s", text_len - 1, text);
+                strncpy(dir_path, text, dir_len);
+                dir_path[dir_len] = '\0';
             }
             prefix = last_slash + 1;
         }
 
         int text_len = strlen(text);
         if(text_len > 0 && text[text_len - 1] == '/'){
-            strcpy(dir_path, text);
-            dir_path[text_len - 1] = '\0';
+            snprintf(dir_path, sizeof(dir_path), "%.*s", text_len - 1, text);
             if(strlen(dir_path) == 0) strcpy(dir_path, "/");
             prefix = "";
         }
