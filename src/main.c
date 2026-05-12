@@ -4,6 +4,38 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <readline/readline.h>
+#include <readline/history.h>
+
+static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", NULL};
+
+static char *builtins_generator(const char *text, int state){
+    static int idx;
+    static int len;
+
+    if(state ==0){
+        idx = 0;
+        len = strlen(text);
+
+    }
+
+    while(builtins[idx] != NULL){
+        const char *name = builtins[idx++];
+        if(strncmp(name, text, len) == 0){
+            return strdup(name);
+        }
+    }
+    return NULL;
+}
+static char **shell_completion(const char *text, int start, int end){
+    (void) end;
+    if(start == 0){
+        return rl_completion_matches(text, builtins_generator);
+    }
+    return NULL;
+
+}
+
 
 int parseArgs(char *input, char **args, int max_args) {
     int argc = 0;
@@ -90,7 +122,6 @@ int isBuiltIn(const char *temp){
            strcmp(temp, "cd") == 0;
 }
 
-/* Find full path of cmd in PATH. Returns 1 and fills full_path on success. */
 int findInPath(const char *cmd, char *full_path, size_t size){
     char *path_env = getenv("PATH");
     if(!path_env) return 0;
@@ -108,12 +139,16 @@ int findInPath(const char *cmd, char *full_path, size_t size){
 
 int main(int argc, char *argv[]) {
     setbuf(stdout, NULL);
-    char command[1024];
+    rl_attempted_completion_function = shell_completion;
+
+    char *command;
 
     while(1){
-        printf("$ ");
-        if(!fgets(command, sizeof(command), stdin)) break;
-        command[strcspn(command, "\n")] = '\0';
+        command = readline("$ ");
+        if(!command) break;
+        if(command[0] == '\0'){
+            free(command); continue;
+        }
 
         char *args[100];
         int n = parseArgs(command, args, 100);
@@ -215,6 +250,7 @@ int main(int argc, char *argv[]) {
         }
 
         for(int j = 0; j < n; j++) free(args[j]);
+            free(command);
     }
 
     return 0;
