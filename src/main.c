@@ -102,31 +102,38 @@ static char **shell_completion(const char *text, int start, int end){
     if(start != 0){
         rl_attempted_completion_over = 1;
 
-        char dir_path[4096] = ".";
-        const char *prefix = text;
+    char dir_path[4096];
+    const char *prefix;
 
+    int text_len = strlen(text);
+
+    if(text_len > 0 && text[text_len - 1] == '/'){
+        strncpy(dir_path, text, text_len - 1);
+        dir_path[text_len - 1] = '\0';
+
+    if(strlen(dir_path) == 0)
+        strcpy(dir_path, ".");
+
+    prefix = "";
+    } else {
         char *last_slash = strrchr(text, '/');
 
-        if(last_slash){
-            int dir_len = last_slash - text;
+    if(last_slash){
+        int dir_len = last_slash - text;
 
-            if(dir_len == 0){
-                strcpy(dir_path, "/");
-            } else {
-                strncpy(dir_path, text, dir_len);
-                dir_path[dir_len] = '\0';
-            }
-
-            prefix = last_slash + 1;
+        if(dir_len == 0)
+            strcpy(dir_path, "/");
+        else {
+            strncpy(dir_path, text, dir_len);
+            dir_path[dir_len] = '\0';
         }
 
-        int text_len = strlen(text);
-        if(text_len > 0 && text[text_len - 1] == '/'){
-            snprintf(dir_path, sizeof(dir_path), "%s", text);
-            if(dir_path[strlen(dir_path)-1] == '/')
-                dir_path[strlen(dir_path)-1] = '\0';
-            prefix = "";
+        prefix = last_slash + 1;
+    } else {
+        strcpy(dir_path, ".");
+        prefix = text;
         }
+    }
 
         DIR *dp = opendir(dir_path);
         if(!dp) return NULL;
@@ -141,10 +148,7 @@ static char **shell_completion(const char *text, int start, int end){
                 match_count++;
 
                 if(match) free(match);
-
-                char full[4096];
-                snprintf(full, sizeof(full), "%s/%s", dir_path, entry->d_name);
-                match = strdup(full);
+                match = strdup(entry->d_name);
             }
         }
         closedir(dp);
