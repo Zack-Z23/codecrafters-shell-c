@@ -100,30 +100,47 @@ static char **shell_completion(const char *text, int start, int end){
     (void)end;
     if(start != 0){
         rl_attempted_completion_over = 1;
-        
-        DIR *dp = opendir(".");
+
+        char dir_path[4096] = ".";
+        const char *prefix = text;
+
+        char *last_slash = strrchr(text, '/');
+        if(last_slash){
+            int dir_len = last_slash - text;
+            strncpy(dir_path, text, dir_len);
+            dir_path[dir_len] = '\0';
+            prefix = last_slash + 1;
+        }
+
+        DIR *dp = opendir(dir_path);
         if(!dp) return NULL;
-        
-        int len = strlen(text);
+
+        int prefix_len = strlen(prefix);
         char *match = NULL;
         int match_count = 0;
-        
+
         struct dirent *entry;
         while((entry = readdir(dp)) != NULL){
-            if(strncmp(entry->d_name, text, len) == 0){
+            if(strncmp(entry->d_name, prefix, prefix_len) == 0){
                 match_count++;
                 if(match) free(match);
-                match = strdup(entry->d_name);
+                if(last_slash){
+                    char full[4096];
+                    snprintf(full, sizeof(full), "%s/%s", dir_path, entry->d_name);
+                    match = strdup(full);
+                } else {
+                    match = strdup(entry->d_name);
+                }
             }
         }
         closedir(dp);
-        
+
         if(match_count == 1 && match){
-            rl_insert_text(match + len);
+            rl_insert_text(match + strlen(text));
             rl_insert_text(" ");
             rl_redisplay();
         }
-        
+
         if(match) free(match);
         return NULL;
     }
