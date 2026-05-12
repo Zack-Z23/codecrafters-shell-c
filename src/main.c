@@ -162,9 +162,12 @@ static char **shell_completion(const char *text, int start, int end){
     if(strlen(lcp) > strlen(text)){
         tab_press_count = 0;
         rl_insert_text(lcp + strlen(text));
+        int exact = 0;
+        for(int i = 1; matches[i]; i++)
+            if(strcmp(matches[i], lcp) == 0) exact++;
         int real_count = 0;
         for(int i = 1; matches[i]; i++) real_count++;
-        if(real_count == 1) rl_insert_text(" ");
+        if(real_count == 1 || exact == real_count) rl_insert_text(" ");
         rl_redisplay();
         for(int i = 0; i < count; i++) free(matches[i]);
         free(matches);
