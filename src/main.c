@@ -6,25 +6,64 @@
 #include <fcntl.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <dirent.h>
 
 static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", NULL};
 
 static char *builtins_generator(const char *text, int state){
     static int idx;
     static int len;
+    static char **matches;
+    static int match_count;
+
+
 
     if(state ==0){
         idx = 0;
         len = strlen(text);
+        match_count = 0;
+        matches = NULL;
 
-    }
+        for(int i = 0; builtins[i] != NULL; i++){
+            if(strncmp(builtins[i], text, len) == 0){
+            matches = realloc(matches, sizeof(char*) * (match_count + 1));
+            matches[match_count++] = strdup(builtins[i]);
+            }
+        }
+    
 
-    while(builtins[idx] != NULL){
-        const char *name = builtins[idx++];
-        if(strncmp(name, text, len) == 0){
-            return strdup(name);
+    char *path_env = getenv("PATH");
+    if(path_env){
+        char path_copy[4096];
+        strncpy(path_copy, path_env, sizeof(path_copy));
+        path_copy[sizeof(path_copy) - 1] = '\0';
+
+        char *dir = strtok(path_copy, ":");
+        while(dir){
+            DIR *dp = opendir(dir);
+            if(dp){
+                struct dirent *entry;
+                while((entry = readdir(dp)) != NULL){
+                    if(strncmp(entry->d_name, text, len) == 0){
+                        char full_path[4096];
+                        snprintf(full_path, sizeof(full_path), "%s/%s", dir, entry->d_name);
+                        if(access(full_path, X_OK) == 0){
+                            matches = realloc(matches, sizeof(char*) * (match_count + 1));
+                            matches[match_count++] = strdup(entry->d_name);
+                        }
+                    }
+                }
+                closedir(dp);
+            }
+            dir = strtok(NULL, ":");
         }
     }
+}
+    if(idx < match_count){
+        return matches[idx++];
+    }
+    free(matches);
+    matches = NULL;
     return NULL;
 }
 static char **shell_completion(const char *text, int start, int end){
