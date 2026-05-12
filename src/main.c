@@ -151,6 +151,8 @@ static char **shell_completion(const char *text, int start, int end){
         lcp[j] = '\0';
     }
 
+    fprintf(stderr, "DEBUG count=%d lcp=%s text=%s\n", count, lcp, text);
+    for(int i = 0; i < count; i++) fprintf(stderr, "  matches[%d]=%s\n", i, matches[i]);
     if(strlen(lcp) > strlen(text)){
         tab_press_count = 0;
         rl_insert_text(lcp + strlen(text));
