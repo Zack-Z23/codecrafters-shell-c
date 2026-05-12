@@ -95,21 +95,24 @@ static char **shell_completion(const char *text, int start, int end){
         int count = 0;
         if(matches) while(matches[count]) count++;
 
-        if(count == 2){
+        if(count >= 2){
             rl_attempted_completion_over = 1;
             char *result = matches[1];
             rl_insert_text(result + strlen(text));
-            rl_insert_text(" ");
+            if(count == 2) rl_insert_text(" ");
             rl_redisplay();
             for(int i = 0; matches[i]; i++) free(matches[i]);
             free(matches);
             return NULL;
         }
 
+        if(matches){
+            for(int i = 0; matches[i]; i++) free(matches[i]);
+            free(matches);
+        }
         rl_attempted_completion_over = 1;
         return NULL;
     }
-
     char **matches = rl_completion_matches(text, builtins_generator);
 
     int count = 0;
