@@ -156,6 +156,9 @@ static char **shell_completion(const char *text, int start, int end){
             rl_insert_text(match);
             rl_insert_text(" ");
             rl_redisplay();
+
+            free(match);
+            return NULL;
         }
         if(match) free(match);
         return NULL;
