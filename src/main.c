@@ -106,6 +106,7 @@ static char **shell_completion(const char *text, int start, int end){
         const char *prefix = text;
 
         char *last_slash = strrchr(text, '/');
+
         if(last_slash){
             int dir_len = last_slash - text;
 
@@ -121,9 +122,11 @@ static char **shell_completion(const char *text, int start, int end){
 
         int text_len = strlen(text);
         if(text_len > 0 && text[text_len - 1] == '/'){
-            snprintf(dir_path, sizeof(dir_path), "%.*s", text_len - 1, text);
-            if(strlen(dir_path) == 0) strcpy(dir_path, "/");
+            snprintf(dir_path, sizeof(dir_path), "%s", text);
+            if(dir_path[strlen(dir_path)-1] == '/')
+                dir_path[strlen(dir_path)-1] = '\0';
             prefix = "";
+            last_slash = (char *)text + strlen(text) - 1;
         }
 
         DIR *dp = opendir(dir_path);
@@ -137,15 +140,11 @@ static char **shell_completion(const char *text, int start, int end){
         while((entry = readdir(dp)) != NULL){
             if(strncmp(entry->d_name, prefix, prefix_len) == 0){
                 match_count++;
+
                 if(match) free(match);
 
                 char full[4096];
-                if(last_slash){
-                    snprintf(full, sizeof(full), "%s/%s", dir_path, entry->d_name);
-                } else {
-                    snprintf(full, sizeof(full), "%s", entry->d_name);
-                }
-
+                snprintf(full, sizeof(full), "%s/%s", dir_path, entry->d_name);
                 match = strdup(full);
             }
         }
@@ -167,100 +166,11 @@ static char **shell_completion(const char *text, int start, int end){
         }
 
         if(match) free(match);
-    }
-
-    char **matches = rl_completion_matches(text, builtins_generator);
-
-    int count = 0;
-    if(matches) while(matches[count]) count++;
-
-    if(count == 0){
-        tab_press_count = 0;
-        rl_attempted_completion_over = 1;
         return NULL;
     }
 
-    if(count == 2){
-        tab_press_count = 0;
-        rl_attempted_completion_over = 1;
-        char *result = matches[1];
-        rl_insert_text(result + strlen(text));
-        rl_insert_text(" ");
-        rl_redisplay();
-        for(int i = 0; matches[i]; i++) free(matches[i]);
-        free(matches);
-        return NULL;
-    }
-
-    char lcp[1024];
-    strncpy(lcp, matches[0], sizeof(lcp));
-    lcp[sizeof(lcp)-1] = '\0';
-
-    for(int i = 1; i < count; i++){
-        int j = 0;
-        while(lcp[j] && matches[i][j] && lcp[j] == matches[i][j]) j++;
-        lcp[j] = '\0';
-    }
-
-    if(strlen(lcp) > strlen(text)){
-        tab_press_count = 0;
-        rl_insert_text(lcp + strlen(text));
-
-        int exact = 0;
-        for(int i = 1; matches[i]; i++)
-            if(strcmp(matches[i], lcp) == 0) exact++;
-
-        int real_count = 0;
-        for(int i = 1; matches[i]; i++) real_count++;
-
-        if(real_count == 1 || exact == real_count) rl_insert_text(" ");
-        rl_redisplay();
-
-        for(int i = 0; i < count; i++) free(matches[i]);
-        free(matches);
-
-        rl_attempted_completion_over = 1;
-        return NULL;
-    }
-
-    tab_press_count++;
-
-    if(tab_press_count == 1){
-        write(STDOUT_FILENO, "\x07", 1);
-        for(int i = 0; i < count; i++) free(matches[i]);
-        free(matches);
-        rl_attempted_completion_over = 1;
-        return NULL;
-    }
-
-    tab_press_count = 0;
-
-    for(int i = 0; i < count - 1; i++){
-        for(int j = i + 1; j < count; j++){
-            if(strcmp(matches[i], matches[j]) > 0){
-                char *tmp = matches[i];
-                matches[i] = matches[j];
-                matches[j] = tmp;
-            }
-        }
-    }
-
-    printf("\n");
-    for(int i = 1; i < count; i++){
-        if(i > 1) printf("  ");
-        printf("%s", matches[i]);
-    }
-    printf("\n");
-    printf("$ %s", rl_line_buffer);
-    fflush(stdout);
-
-    for(int i = 0; i < count; i++) free(matches[i]);
-    free(matches);
-
-    rl_attempted_completion_over = 1;
-    return NULL;
+    return rl_completion_matches(text, builtins_generator);
 }
-
 int parseArgs(char *input, char **args, int max_args) {
     int argc = 0;
     int i = 0;
