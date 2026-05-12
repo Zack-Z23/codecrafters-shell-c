@@ -154,14 +154,15 @@ static char **shell_completion(const char *text, int start, int end){
     if(strlen(lcp) > strlen(text)){
         tab_press_count = 0;
         rl_insert_text(lcp + strlen(text));
-        if(count == 2) rl_insert_text(" ");
+        int real_count = 0;
+        for(int i = 1; matches[i]; i++) real_count++;
+        if(real_count == 1) rl_insert_text(" ");
         rl_redisplay();
         for(int i = 0; i < count; i++) free(matches[i]);
         free(matches);
         rl_attempted_completion_over = 1;
         return NULL;
     }
-
     tab_press_count++;
 
     if(tab_press_count == 1){
