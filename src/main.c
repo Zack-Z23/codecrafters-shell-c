@@ -46,7 +46,7 @@ static char *builtins_generator(const char *text, int state){
                         if(strncmp(entry->d_name, text, len) == 0){
                             char full_path[4096];
                             snprintf(full_path, sizeof(full_path), "%s/%s", dir, entry->d_name);
-        q                   if(access(full_path, X_OK) == 0){
+                            if(access(full_path, X_OK) == 0){
                                 int dup = 0;
                                 for(int k = 0; k < match_count; k++){
                                     if(strcmp(matches[k], entry->d_name) == 0){
