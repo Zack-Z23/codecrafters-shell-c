@@ -128,8 +128,8 @@ static char **shell_completion(const char *text, int start, int end){
             }
 
     printf("\n");
-    for(int i = 0; i < count; i++){
-        if(i > 0) printf("  ");
+    for(int i = 1; i < count; i++){
+        if(i > 1) printf("  ");
         printf("%s", matches[i]);
     }
     printf("\n");
