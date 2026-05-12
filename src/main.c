@@ -150,8 +150,8 @@ static char **shell_completion(const char *text, int start, int end){
         closedir(dp);
 
         if(match_count == 1 && match){
-            rl_delete_text(rl_completion_start, rl_completion_end);
-            rl_point = rl_completion_start;
+            rl_delete_text(start, rl_point);
+            rl_point = start;
 
             rl_insert_text(match);
             rl_insert_text(" ");
