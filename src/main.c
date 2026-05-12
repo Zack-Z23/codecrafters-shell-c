@@ -7,7 +7,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <dirent.h>
-
+#include <readline/readline.h>
 static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", NULL};
 
 static int tab_press_count = 0;
@@ -84,7 +84,7 @@ static char **shell_completion(const char *text, int start, int end){
 
     if(count == 1){
         tab_press_count = 0;
-        rl_append_character = ' ';
+        rl_completion_append_character = ' ';
         rl_attempted_completion_over = 1;
         return matches;
     }
