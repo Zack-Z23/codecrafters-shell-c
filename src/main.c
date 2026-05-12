@@ -66,10 +66,49 @@ static char *builtins_generator(const char *text, int state){
     matches = NULL;
     return NULL;
 }
+static char *filename_generator(const char *text, int state){
+    static DIR *dp;
+    static int len;
 
+    if(state == 0){
+        if(dp) closedir(dp);
+        dp = opendir(".");
+        len = strlen(text);
+    }
+
+    if(!dp) return NULL;
+
+    struct dirent *entry;
+    while((entry = readdir(dp)) != NULL){
+        if(strncmp(entry->d_name, text, len) == 0)
+            return strdup(entry->d_name);
+    }
+
+    closedir(dp);
+    dp = NULL;
+    return NULL;
+}
 static char **shell_completion(const char *text, int start, int end){
     (void)end;
-    if(start != 0) return NULL;
+    if(start != 0){
+        char **matches = rl_completion_matches(text, filename_generator);
+        int count = 0;
+        if(matches) while(matches[count]) count++;
+
+        if(count == 2){
+            rl_attempted_completion_over = 1;
+            char *result = matches[1];
+            rl_insert_text(result + strlen(text));
+            rl_insert_text(" ");
+            rl_redisplay();
+            for(int i = 0; matches[i]; i++) free(matches[i]);
+            free(matches);
+            return NULL;
+        }
+
+        rl_attempted_completion_over = 1;
+        return NULL;
+    }
 
     char **matches = rl_completion_matches(text, builtins_generator);
 
