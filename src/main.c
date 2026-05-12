@@ -103,18 +103,13 @@ static char **shell_completion(const char *text, int start, int end){
 
         char dir_path[4096] = ".";
         const char *prefix = text;
-
-        char *last_slash = strrchr(text, '/');
-        if(last_slash){
-            int dir_len = last_slash - text;
-            if(dir_len == 0){
-                strcpy(dir_path, "/");
-            } else {
-                strncpy(dir_path, text, dir_len);
-                dir_path[dir_len] = '\0';
-            }
-            prefix = last_slash + 1;
+        char full[4096];
+        if(strcmp(dir_path, ".") == 0){
+         snprintf(full, sizeof(full), "%s", entry->d_name);
+        } else {
+         snprintf(full, sizeof(full), "%s/%s", dir_path, entry->d_name);
         }
+        match = strdup(full);
 
         int text_len = strlen(text);
         if(text_len > 0 && text[text_len - 1] == '/'){
