@@ -82,10 +82,10 @@ static char **shell_completion(const char *text, int start, int end){
         return NULL;
     }
 
-    if(count == 1){
+    if(count == 2){
         tab_press_count = 0;
         rl_attempted_completion_over = 1;
-        char *result = matches[0];
+        char *result = matches[1];
         rl_insert_text(result + strlen(text));
         rl_insert_text(" ");
         rl_redisplay();
