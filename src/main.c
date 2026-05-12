@@ -10,15 +10,15 @@
 
 static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", NULL};
 
+static int tab_press_count = 0;
+
 static char *builtins_generator(const char *text, int state){
     static int idx;
     static int len;
     static char **matches;
     static int match_count;
 
-
-
-    if(state ==0){
+    if(state == 0){
         idx = 0;
         len = strlen(text);
         match_count = 0;
@@ -26,53 +26,120 @@ static char *builtins_generator(const char *text, int state){
 
         for(int i = 0; builtins[i] != NULL; i++){
             if(strncmp(builtins[i], text, len) == 0){
-            matches = realloc(matches, sizeof(char*) * (match_count + 1));
-            matches[match_count++] = strdup(builtins[i]);
+                matches = realloc(matches, sizeof(char*) * (match_count + 1));
+                matches[match_count++] = strdup(builtins[i]);
             }
         }
-    
 
-    char *path_env = getenv("PATH");
-    if(path_env){
-        char path_copy[4096];
-        strncpy(path_copy, path_env, sizeof(path_copy));
-        path_copy[sizeof(path_copy) - 1] = '\0';
+        char *path_env = getenv("PATH");
+        if(path_env){
+            char path_copy[4096];
+            strncpy(path_copy, path_env, sizeof(path_copy));
+            path_copy[sizeof(path_copy) - 1] = '\0';
 
-        char *dir = strtok(path_copy, ":");
-        while(dir){
-            DIR *dp = opendir(dir);
-            if(dp){
-                struct dirent *entry;
-                while((entry = readdir(dp)) != NULL){
-                    if(strncmp(entry->d_name, text, len) == 0){
-                        char full_path[4096];
-                        snprintf(full_path, sizeof(full_path), "%s/%s", dir, entry->d_name);
-                        if(access(full_path, X_OK) == 0){
-                            matches = realloc(matches, sizeof(char*) * (match_count + 1));
-                            matches[match_count++] = strdup(entry->d_name);
+            char *dir = strtok(path_copy, ":");
+            while(dir){
+                DIR *dp = opendir(dir);
+                if(dp){
+                    struct dirent *entry;
+                    while((entry = readdir(dp)) != NULL){
+                        if(strncmp(entry->d_name, text, len) == 0){
+                            char full_path[4096];
+                            snprintf(full_path, sizeof(full_path), "%s/%s", dir, entry->d_name);
+                            if(access(full_path, X_OK) == 0){
+                                matches = realloc(matches, sizeof(char*) * (match_count + 1));
+                                matches[match_count++] = strdup(entry->d_name);
+                            }
                         }
                     }
+                    closedir(dp);
                 }
-                closedir(dp);
+                dir = strtok(NULL, ":");
             }
-            dir = strtok(NULL, ":");
         }
     }
-}
-    if(idx < match_count){
+
+    if(idx < match_count)
         return matches[idx++];
-    }
+
     free(matches);
     matches = NULL;
     return NULL;
 }
-static char **shell_completion(const char *text, int start, int end){
-    (void) end;
-    if(start == 0){
-        return rl_completion_matches(text, builtins_generator);
-    }
-    return NULL;
 
+static char **shell_completion(const char *text, int start, int end){
+    (void)end;
+    if(start != 0) return NULL;
+
+    char **matches = rl_completion_matches(text, builtins_generator);
+
+    int count = 0;
+    if(matches) while(matches[count]) count++;
+
+    if(count == 0){
+        tab_press_count = 0;
+        rl_attempted_completion_over = 1;
+        return NULL;
+    }
+
+    if(count == 1){
+        tab_press_count = 0;
+        rl_attempted_completion_over = 1;
+        return matches;
+    }
+
+    char lcp[1024];
+    strncpy(lcp, matches[0], sizeof(lcp));
+    lcp[sizeof(lcp)-1] = '\0';
+    for(int i = 1; i < count; i++){
+        int j = 0;
+        while(lcp[j] && matches[i][j] && lcp[j] == matches[i][j]) j++;
+        lcp[j] = '\0';
+    }
+
+    if(strlen(lcp) > strlen(text)){
+        tab_press_count = 0;
+        rl_insert_text(lcp + strlen(text));
+        rl_redisplay();
+        for(int i = 0; i < count; i++) free(matches[i]);
+        free(matches);
+        rl_attempted_completion_over = 1;
+        return NULL;
+    }
+
+    tab_press_count++;
+
+    if(tab_press_count == 1){
+        write(STDOUT_FILENO, "\x07", 1);
+        for(int i = 0; i < count; i++) free(matches[i]);
+        free(matches);
+        rl_attempted_completion_over = 1;
+        return NULL;
+    }
+
+    tab_press_count = 0;
+
+    for(int i = 0; i < count - 1; i++)
+        for(int j = i + 1; j < count; j++)
+            if(strcmp(matches[i], matches[j]) > 0){
+                char *tmp = matches[i];
+                matches[i] = matches[j];
+                matches[j] = tmp;
+            }
+
+    printf("\n");
+    for(int i = 0; i < count; i++){
+        if(i > 0) printf("  ");
+        printf("%s", matches[i]);
+    }
+    printf("\n");
+    printf("$ %s", rl_line_buffer);
+    fflush(stdout);
+
+    for(int i = 0; i < count; i++) free(matches[i]);
+    free(matches);
+    rl_attempted_completion_over = 1;
+    return NULL;
 }
 
 
