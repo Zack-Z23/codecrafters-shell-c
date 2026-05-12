@@ -110,8 +110,7 @@ static char **shell_completion(const char *text, int start, int end){
             if(dir_len == 0){
                 strcpy(dir_path, "/");
             } else {
-                strncpy(dir_path, text, dir_len);
-                dir_path[dir_len] = '\0';
+                snprintf(dir_path, sizeof(dir_path), "%.*s", text_len - 1, text);
             }
             prefix = last_slash + 1;
         }
@@ -158,10 +157,10 @@ static char **shell_completion(const char *text, int start, int end){
             rl_redisplay();
 
             free(match);
-            return NULL;
+            return (char **)NULL;
         }
         if(match) free(match);
-        return NULL;
+
     }
     char **matches = rl_completion_matches(text, builtins_generator);
 
