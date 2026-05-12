@@ -84,9 +84,14 @@ static char **shell_completion(const char *text, int start, int end){
 
     if(count == 1){
         tab_press_count = 0;
-        rl_completion_append_character = ' ';
         rl_attempted_completion_over = 1;
-        return matches;
+        char *result = matches[0];
+        rl_insert_text(result + strlen(text));
+        rl_insert_text(" ");
+        rl_redisplay();
+        for(int i = 0; matches[i]; i++) free(matches[i]);
+        free(matches);
+        return NULL;
     }
 
     char lcp[1024];
