@@ -84,6 +84,7 @@ static char **shell_completion(const char *text, int start, int end){
 
     if(count == 1){
         tab_press_count = 0;
+        rl_append_character = ' ';
         rl_attempted_completion_over = 1;
         return matches;
     }
