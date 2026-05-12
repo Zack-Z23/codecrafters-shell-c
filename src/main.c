@@ -126,7 +126,6 @@ static char **shell_completion(const char *text, int start, int end){
             if(dir_path[strlen(dir_path)-1] == '/')
                 dir_path[strlen(dir_path)-1] = '\0';
             prefix = "";
-            last_slash = (char *)text + strlen(text) - 1;
         }
 
         DIR *dp = opendir(dir_path);
@@ -151,11 +150,8 @@ static char **shell_completion(const char *text, int start, int end){
         closedir(dp);
 
         if(match_count == 1 && match){
-            int start_pos = rl_point - strlen(text);
-            int end_pos = rl_point;
-
-            rl_delete_text(start_pos, end_pos);
-            rl_point = start_pos;
+            rl_delete_text(rl_completion_start, rl_completion_end);
+            rl_point = rl_completion_start;
 
             rl_insert_text(match);
             rl_insert_text(" ");
