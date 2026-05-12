@@ -146,13 +146,17 @@ static char **shell_completion(const char *text, int start, int end){
             }
         }
         closedir(dp);
-
         if(match_count == 1 && match){
-            rl_insert_text(match + strlen(text));
+            int start = rl_point - strlen(text);
+            int end = rl_point;
+
+            rl_delete_text(start, end);
+            rl_point = start;
+
+            rl_insert_text(match);
             rl_insert_text(" ");
             rl_redisplay();
         }
-
         if(match) free(match);
         return NULL;
     }
