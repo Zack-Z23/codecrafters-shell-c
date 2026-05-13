@@ -158,7 +158,7 @@ static char **shell_completion(const char *text, int start, int end){
             rl_point = start;
 
             rl_insert_text(match);
-            rl_insert_text(' ')
+            rl_insert_text(' ');
             rl_redisplay();
 
             free(match);
