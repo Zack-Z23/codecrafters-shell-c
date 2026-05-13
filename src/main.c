@@ -7,7 +7,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <dirent.h>
-#include <readline/readline.h>
+#include <sys/stat.h>
 static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", NULL};
 
 static int tab_press_count = 0;
@@ -174,9 +174,14 @@ static char **shell_completion(const char *text, int start, int end){
                 }
             }
 
+            char stat_path[8192];
+            snprintf(stat_path, sizeof(stat_path), "%s/%s", dir_path, match);
+            struct stat st;
+
+            int is_dir = (stat(stat_path, &st) == 0 && S_ISDIR(st.st_mode))
 
             rl_insert_text(full_match);
-            rl_insert_text(" ");
+            rl_insert_text(is_dir ? "/":" ");
             rl_redisplay();
 
             free(match);
