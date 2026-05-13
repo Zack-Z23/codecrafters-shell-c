@@ -99,151 +99,151 @@ static char *filename_generator(const char *text, int state){
 static char **shell_completion(const char *text, int start, int end){
     (void)end;
 
-    if(start != 0){
-        rl_attempted_completion_over = 1;
+    if(start == 0){
+        tab_press_count = 0;
+        return rl_completion_matches(text, builtins_generator);
+    }
 
-        char dir_path[4096];
-        const char *prefix;
-        int text_len = strlen(text);
+    rl_attempted_completion_over = 1;
 
-        if(text_len > 0 && text[text_len - 1] == '/'){
-            strncpy(dir_path, text, text_len - 1);
-            dir_path[text_len - 1] = '\0';
-            if(strlen(dir_path) == 0) strcpy(dir_path, ".");
-            prefix = "";
+    char dir_path[4096];
+    const char *prefix;
+    int text_len = strlen(text);
+
+    if(text_len > 0 && text[text_len - 1] == '/'){
+        strncpy(dir_path, text, text_len - 1);
+        dir_path[text_len - 1] = '\0';
+        if(strlen(dir_path) == 0) strcpy(dir_path, ".");
+        prefix = "";
+    } else {
+        char *last_slash = strrchr(text, '/');
+        if(last_slash){
+            int dir_len = last_slash - text;
+            if(dir_len == 0) strcpy(dir_path, "/");
+            else {
+                strncpy(dir_path, text, dir_len);
+                dir_path[dir_len] = '\0';
+            }
+            prefix = last_slash + 1;
         } else {
-            char *last_slash = strrchr(text, '/');
+            strcpy(dir_path, ".");
+            prefix = text;
+        }
+    }
+
+    DIR *dp = opendir(dir_path);
+    if(!dp) return NULL;
+
+    int prefix_len = strlen(prefix);
+    char **matches = NULL;
+    int match_count = 0;
+
+    struct dirent *entry;
+    while((entry = readdir(dp)) != NULL){
+        if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+        if(strncmp(entry->d_name, prefix, prefix_len) == 0){
+            matches = realloc(matches, sizeof(char*) * (match_count + 1));
+            matches[match_count++] = strdup(entry->d_name);
+        }
+    }
+    closedir(dp);
+
+    if(match_count == 0){
+        if(matches) free(matches);
+        return NULL;
+    }
+
+    for(int i = 0; i < match_count - 1; i++)
+        for(int j = i + 1; j < match_count; j++)
+            if(strcmp(matches[i], matches[j]) > 0){
+                char *tmp = matches[i];
+                matches[i] = matches[j];
+                matches[j] = tmp;
+            }
+
+    if(match_count == 1){
+        char full_match[8192];
+        if(strcmp(dir_path, ".") == 0 && strrchr(text, '/') == NULL){
+            snprintf(full_match, sizeof(full_match), "%s", matches[0]);
+        } else {
+            const char *last_slash = strrchr(text, '/');
             if(last_slash){
-                int dir_len = last_slash - text;
-                if(dir_len == 0) strcpy(dir_path, "/");
-                else {
-                    strncpy(dir_path, text, dir_len);
-                    dir_path[dir_len] = '\0';
-                }
-                prefix = last_slash + 1;
+                int slash_prefix_len = (last_slash - text) + 1;
+                snprintf(full_match, sizeof(full_match), "%.*s%s", slash_prefix_len, text, matches[0]);
             } else {
-                strcpy(dir_path, ".");
-                prefix = text;
-            }
-        }
-
-        DIR *dp = opendir(dir_path);
-        if(!dp) return NULL;
-
-        int prefix_len = strlen(prefix);
-        char **matches = NULL;
-        int match_count = 0;
-
-        struct dirent *entry;
-        while((entry = readdir(dp)) != NULL){
-            if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-                continue;
-            if(strncmp(entry->d_name, prefix, prefix_len) == 0){
-                matches = realloc(matches, sizeof(char*) * (match_count + 1));
-                matches[match_count++] = strdup(entry->d_name);
-            }
-        }
-        closedir(dp);
-
-        if(match_count == 0){
-            if(matches) free(matches);
-            return NULL;
-        }
-
-        for(int i = 0; i < match_count - 1; i++)
-            for(int j = i + 1; j < match_count; j++)
-                if(strcmp(matches[i], matches[j]) > 0){
-                    char *tmp = matches[i];
-                    matches[i] = matches[j];
-                    matches[j] = tmp;
-                }
-
-        if(match_count == 1){
-            char full_match[8192];
-            if(strcmp(dir_path, ".") == 0 && strrchr(text, '/') == NULL){
                 snprintf(full_match, sizeof(full_match), "%s", matches[0]);
-            } else {
-                const char *last_slash = strrchr(text, '/');
-                if(last_slash){
-                    int slash_prefix_len = (last_slash - text) + 1;
-                    snprintf(full_match, sizeof(full_match), "%.*s%s", slash_prefix_len, text, matches[0]);
-                } else {
-                    snprintf(full_match, sizeof(full_match), "%s", matches[0]);
-                }
-            }
-
-            char stat_path[8192];
-            snprintf(stat_path, sizeof(stat_path), "%s/%s", dir_path, matches[0]);
-            struct stat st;
-            int is_dir = (stat(stat_path, &st) == 0 && S_ISDIR(st.st_mode));
-
-            rl_delete_text(start, rl_point);
-            rl_point = start;
-            rl_insert_text(full_match);
-            rl_insert_text(is_dir ? "/" : " ");
-            rl_redisplay();
-
-            free(matches[0]);
-            free(matches);
-            return NULL;
-        }
-
-        char lcp[8192];
-        strncpy(lcp, matches[0], sizeof(lcp));
-        lcp[sizeof(lcp)-1] = '\0';
-        for(int i = 1; i < match_count; i++){
-            int j = 0;
-            while(lcp[j] && matches[i][j] && lcp[j] == matches[i][j]) j++;
-            lcp[j] = '\0';
-        }
-
-        if(strlen(lcp) > (size_t)prefix_len){
-            char full_match[8192];
-            if(strcmp(dir_path, ".") == 0 && strrchr(text, '/') == NULL){
-                snprintf(full_match, sizeof(full_match), "%s", lcp);
-            } else {
-                const char *last_slash = strrchr(text, '/');
-                if(last_slash){
-                    int slash_prefix_len = (last_slash - text) + 1;
-                    snprintf(full_match, sizeof(full_match), "%.*s%s", slash_prefix_len, text, lcp);
-                } else {
-                    snprintf(full_match, sizeof(full_match), "%s", lcp);
-                }
-            }
-            rl_delete_text(start, rl_point);
-            rl_point = start;
-            rl_insert_text(full_match);
-            rl_redisplay();
-            tab_press_count = 0;
-        } else {
-            tab_press_count++;
-            if(tab_press_count == 1){
-                write(STDOUT_FILENO, "\x07", 1);
-            } else {
-                printf("\n");
-                for(int i = 0; i < match_count; i++){
-                    char stat_path[8192];
-                    snprintf(stat_path, sizeof(stat_path), "%s/%s", dir_path, matches[i]);
-                    struct stat st;
-                    int is_dir = (stat(stat_path, &st) == 0 && S_ISDIR(st.st_mode));
-                    printf("%s%s", matches[i], is_dir ? "/" : "");
-                    if(i < match_count - 1) printf("  ");
-                }
-                printf("\n");
-                fflush(stdout);
-                rl_on_new_line();
-                rl_redisplay();
-                tab_press_count = 0;
             }
         }
 
-        for(int i = 0; i < match_count; i++) free(matches[i]);
+        char stat_path[8192];
+        snprintf(stat_path, sizeof(stat_path), "%s/%s", dir_path, matches[0]);
+        struct stat st;
+        int is_dir = (stat(stat_path, &st) == 0 && S_ISDIR(st.st_mode));
+
+        rl_delete_text(start, rl_point);
+        rl_point = start;
+        rl_insert_text(full_match);
+        rl_insert_text(is_dir ? "/" : " ");
+        rl_redisplay();
+
+        free(matches[0]);
         free(matches);
         return NULL;
     }
 
-    tab_press_count = 0;
-    return rl_completion_matches(text, builtins_generator);
+    char lcp[8192];
+    strncpy(lcp, matches[0], sizeof(lcp));
+    lcp[sizeof(lcp)-1] = '\0';
+    for(int i = 1; i < match_count; i++){
+        int j = 0;
+        while(lcp[j] && matches[i][j] && lcp[j] == matches[i][j]) j++;
+        lcp[j] = '\0';
+    }
+
+    if(strlen(lcp) > (size_t)prefix_len){
+        char full_match[8192];
+        if(strcmp(dir_path, ".") == 0 && strrchr(text, '/') == NULL){
+            snprintf(full_match, sizeof(full_match), "%s", lcp);
+        } else {
+            const char *last_slash = strrchr(text, '/');
+            if(last_slash){
+                int slash_prefix_len = (last_slash - text) + 1;
+                snprintf(full_match, sizeof(full_match), "%.*s%s", slash_prefix_len, text, lcp);
+            } else {
+                snprintf(full_match, sizeof(full_match), "%s", lcp);
+            }
+        }
+        rl_delete_text(start, rl_point);
+        rl_point = start;
+        rl_insert_text(full_match);
+        rl_redisplay();
+        tab_press_count = 0;
+    } else {
+        tab_press_count++;
+        if(tab_press_count == 1){
+            write(STDOUT_FILENO, "\x07", 1);
+        } else {
+            printf("\n");
+            for(int i = 0; i < match_count; i++){
+                char stat_path[8192];
+                snprintf(stat_path, sizeof(stat_path), "%s/%s", dir_path, matches[i]);
+                struct stat st;
+                int is_dir = (stat(stat_path, &st) == 0 && S_ISDIR(st.st_mode));
+                printf("%s%s", matches[i], is_dir ? "/" : "");
+                if(i < match_count - 1) printf("  ");
+            }
+            printf("\n");
+            fflush(stdout);
+            rl_on_new_line();
+            rl_redisplay();
+            tab_press_count = 0;
+        }
+    }
+
+    for(int i = 0; i < match_count; i++) free(matches[i]);
+    free(matches);
+    return NULL;
 }
 int parseArgs(char *input, char **args, int max_args) {
     int argc = 0;
