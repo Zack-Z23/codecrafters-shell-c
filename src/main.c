@@ -158,7 +158,7 @@ static char **shell_completion(const char *text, int start, int end){
             rl_point = start;
 
             char full_match[8192];
-            if(strcmp(dir_path, ".") == 0 && strrchr(text,  ',') == NULL){
+            if(strcmp(dir_path, ".") == 0 && strrchr(text,  '/') == NULL){
                 snprintf(full_match, sizeof(full_match), "%s", match);
             }
             else{
@@ -174,7 +174,7 @@ static char **shell_completion(const char *text, int start, int end){
             }
 
 
-            rl_insert_text(match);
+            rl_insert_text(full_match);
             rl_insert_text("  ");
             rl_redisplay();
 
