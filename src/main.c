@@ -176,7 +176,7 @@ static char **shell_completion(const char *text, int start, int end){
 
 
             rl_insert_text(full_match);
-            rl_insert_text("  ");
+            rl_insert_text(" ");
             rl_redisplay();
 
             free(match);
