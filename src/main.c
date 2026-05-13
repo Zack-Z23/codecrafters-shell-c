@@ -188,25 +188,53 @@ static char **shell_completion(const char *text, int start, int end){
             return NULL;
         }
 
-        tab_press_count++;
+        char lcp[8192];
+        strncpy(lcp, matches[0], sizeof(lcp));
+        lcp[sizeof(lcp)-1] = '\0';
+        for(int i = 1; i < match_count; i++){
+            int j = 0;
+            while(lcp[j] && matches[i][j] && lcp[j] == matches[i][j]) j++;
+            lcp[j] = '\0';
+        }
 
-        if(tab_press_count == 1){
-            write(STDOUT_FILENO, "\x07", 1);
-        } else {
-            printf("\n");
-            for(int i = 0; i < match_count; i++){
-                char stat_path[8192];
-                snprintf(stat_path, sizeof(stat_path), "%s/%s", dir_path, matches[i]);
-                struct stat st;
-                int is_dir = (stat(stat_path, &st) == 0 && S_ISDIR(st.st_mode));
-                printf("%s%s", matches[i], is_dir ? "/" : "");
-                if(i < match_count - 1) printf("  ");
+        if(strlen(lcp) > (size_t)prefix_len){
+            char full_match[8192];
+            if(strcmp(dir_path, ".") == 0 && strrchr(text, '/') == NULL){
+                snprintf(full_match, sizeof(full_match), "%s", lcp);
+            } else {
+                const char *last_slash = strrchr(text, '/');
+                if(last_slash){
+                    int slash_prefix_len = (last_slash - text) + 1;
+                    snprintf(full_match, sizeof(full_match), "%.*s%s", slash_prefix_len, text, lcp);
+                } else {
+                    snprintf(full_match, sizeof(full_match), "%s", lcp);
+                }
             }
-            printf("\n");
-            fflush(stdout);
-            rl_on_new_line();
+            rl_delete_text(start, rl_point);
+            rl_point = start;
+            rl_insert_text(full_match);
             rl_redisplay();
             tab_press_count = 0;
+        } else {
+            tab_press_count++;
+            if(tab_press_count == 1){
+                write(STDOUT_FILENO, "\x07", 1);
+            } else {
+                printf("\n");
+                for(int i = 0; i < match_count; i++){
+                    char stat_path[8192];
+                    snprintf(stat_path, sizeof(stat_path), "%s/%s", dir_path, matches[i]);
+                    struct stat st;
+                    int is_dir = (stat(stat_path, &st) == 0 && S_ISDIR(st.st_mode));
+                    printf("%s%s", matches[i], is_dir ? "/" : "");
+                    if(i < match_count - 1) printf("  ");
+                }
+                printf("\n");
+                fflush(stdout);
+                rl_on_new_line();
+                rl_redisplay();
+                tab_press_count = 0;
+            }
         }
 
         for(int i = 0; i < match_count; i++) free(matches[i]);
