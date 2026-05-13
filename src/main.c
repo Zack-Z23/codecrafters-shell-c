@@ -144,11 +144,12 @@ static char **shell_completion(const char *text, int start, int end){
 
         struct dirent *entry;
         while((entry = readdir(dp)) != NULL){
+            if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+             continue;
             if(strncmp(entry->d_name, prefix, prefix_len) == 0){
                 match_count++;
-
-                if(match) free(match);
-                match = strdup(entry->d_name);
+        if(match) free(match);
+        match = strdup(entry->d_name);
             }
         }
         closedir(dp);
