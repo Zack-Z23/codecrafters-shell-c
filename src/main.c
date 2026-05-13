@@ -178,7 +178,7 @@ static char **shell_completion(const char *text, int start, int end){
             snprintf(stat_path, sizeof(stat_path), "%s/%s", dir_path, match);
             struct stat st;
 
-            int is_dir = (stat(stat_path, &st) == 0 && S_ISDIR(st.st_mode))
+            int is_dir = (stat(stat_path, &st) == 0 && S_ISDIR(st.st_mode));
 
             rl_insert_text(full_match);
             rl_insert_text(is_dir ? "/":" ");
