@@ -157,6 +157,23 @@ static char **shell_completion(const char *text, int start, int end){
             rl_delete_text(start, rl_point);
             rl_point = start;
 
+            char full_match[8192];
+            if(strcmp(dir_path, ".") == 0 && strrchr(text,  ',') == NULL){
+                snprintf(full_match, sizeof(full_match), "%s", match);
+            }
+            else{
+                const char *last_slash = strrchr(text, '/');
+
+                if(last_slash){
+                    int prefix_len = (last_slash - text) + 1;
+                    snprintf(full_match, sizeof(full_match), "%.*s%s", prefix_len, text, match);
+                }
+                else{
+                    snprintf(full_match, sizeof(full_match), "%s", match);
+                }
+            }
+
+
             rl_insert_text(match);
             rl_insert_text("  ");
             rl_redisplay();
