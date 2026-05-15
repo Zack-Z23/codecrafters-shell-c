@@ -96,12 +96,70 @@ static char *filename_generator(const char *text, int state){
     dp = NULL;
     return NULL;
 }
+/* forward declarations for completion registry (defined before main) */
+static const char *find_completion(const char *command);
+static void register_completion(const char *command, const char *script);
+
 static char **shell_completion(const char *text, int start, int end){
     (void)end;
 
     if(start == 0){
         tab_press_count = 0;
         return rl_completion_matches(text, builtins_generator);
+    }
+
+    /* Check for a registered completer script for the command */
+    {
+        /* Extract the command name (first word of rl_line_buffer) */
+        char cmd_name[256];
+        int ci = 0;
+        const char *buf = rl_line_buffer;
+        while(*buf == ' ') buf++;
+        while(*buf && *buf != ' ' && ci < (int)sizeof(cmd_name) - 1)
+            cmd_name[ci++] = *buf++;
+        cmd_name[ci] = '\0';
+
+        const char *script = find_completion(cmd_name);
+        if(script){
+            rl_attempted_completion_over = 1;
+
+            /* Run the completer script and capture stdout */
+            int pipefd[2];
+            if(pipe(pipefd) == 0){
+                pid_t pid = fork();
+                if(pid == 0){
+                    close(pipefd[0]);
+                    dup2(pipefd[1], STDOUT_FILENO);
+                    close(pipefd[1]);
+                    execlp(script, script, NULL);
+                    exit(1);
+                }
+                close(pipefd[1]);
+
+                char buf2[4096];
+                int total = 0;
+                ssize_t n;
+                while((n = read(pipefd[0], buf2 + total, sizeof(buf2) - total - 1)) > 0)
+                    total += n;
+                buf2[total] = '\0';
+                close(pipefd[0]);
+                waitpid(pid, NULL, 0);
+
+                /* Strip trailing newline to get the single candidate */
+                while(total > 0 && (buf2[total-1] == '\n' || buf2[total-1] == '\r'))
+                    buf2[--total] = '\0';
+
+                if(total > 0){
+                    /* Insert the completion replacing current text */
+                    rl_delete_text(start, rl_end);
+                    rl_point = start;
+                    rl_insert_text(buf2);
+                    rl_insert_text(" ");
+                    rl_redisplay();
+                }
+            }
+            return NULL;
+        }
     }
 
     rl_attempted_completion_over = 1;
