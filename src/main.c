@@ -162,6 +162,11 @@ static char **shell_completion(const char *text, int start, int end){
                     close(pipefd[0]);
                     dup2(pipefd[1], STDOUT_FILENO);
                     close(pipefd[1]);
+                    /* Set COMP_LINE and COMP_POINT for the completer */
+                    setenv("COMP_LINE", rl_line_buffer, 1);
+                    char comp_point_str[32];
+                    snprintf(comp_point_str, sizeof(comp_point_str), "%d", rl_point);
+                    setenv("COMP_POINT", comp_point_str, 1);
                     /* argv[1]=command, argv[2]=word being completed, argv[3]=prev word */
                     execlp(script, script, cmd_name, text, prev_word, NULL);
                     exit(1);
