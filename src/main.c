@@ -555,6 +555,20 @@ static void register_completion(const char *command, const char *script){
     }
 }
 
+static void remove_completion(const char *command){
+    for(int i = 0; i < completion_count; i++){
+        if(strcmp(completion_registry[i].command, command) == 0){
+            free(completion_registry[i].command);
+            free(completion_registry[i].script);
+            /* shift remaining entries down */
+            for(int j = i; j < completion_count - 1; j++)
+                completion_registry[j] = completion_registry[j+1];
+            completion_count--;
+            return;
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     setbuf(stdout, NULL);
     rl_attempted_completion_function = shell_completion;
@@ -636,7 +650,7 @@ int main(int argc, char *argv[]) {
         else if(strcmp(cmd, "complete") == 0){
             if(n >= 2 && strcmp(args[1], "-p") == 0){
                 if(n < 3){
-                    /* no command given — could list all, for now do nothing */
+                    /* no command given */
                 } else {
                     const char *script = find_completion(args[2]);
                     if(script)
@@ -644,8 +658,9 @@ int main(int argc, char *argv[]) {
                     else
                         printf("complete: %s: no completion specification\n", args[2]);
                 }
+            } else if(n >= 3 && strcmp(args[1], "-r") == 0){
+                remove_completion(args[2]);
             } else if(n >= 4 && strcmp(args[1], "-C") == 0){
-                /* complete -C <script> <command> */
                 register_completion(args[3], args[2]);
             }
         }
