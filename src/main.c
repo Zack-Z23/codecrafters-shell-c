@@ -102,7 +102,7 @@ static char *filename_generator(const char *text, int state){
     dp = NULL;
     return NULL;
 }
-/* forward declarations for completion registry (defined before main) */
+
 static const char *find_completion(const char *command);
 static void register_completion(const char *command, const char *script);
 
@@ -114,9 +114,9 @@ static char **shell_completion(const char *text, int start, int end){
         return rl_completion_matches(text, builtins_generator);
     }
 
-    /* Check for a registered completer script for the command */
+
     {
-        /* Extract the command name (first word of rl_line_buffer) */
+
         char cmd_name[256];
         int ci = 0;
         const char *buf = rl_line_buffer;
@@ -128,18 +128,14 @@ static char **shell_completion(const char *text, int start, int end){
         const char *script = find_completion(cmd_name);
         if(script){
             rl_attempted_completion_over = 1;
-
-            /* Determine the word before the one being completed (argv[3]).
-               Walk rl_line_buffer up to 'start', prev_word = last complete token. */
             char prev_word[1024] = "";
             {
                 char linebuf[4096];
                 strncpy(linebuf, rl_line_buffer, sizeof(linebuf));
                 linebuf[sizeof(linebuf)-1] = '\0';
-                /* Truncate at start: everything before start are complete tokens */
                 if(start < (int)sizeof(linebuf)) linebuf[start] = '\0';
 
-                /* prev_word = last token (all tokens, including cmd at index 0) */
+
                 char *p = linebuf;
                 while(*p){
                     while(*p == ' ') p++;
@@ -155,14 +151,12 @@ static char **shell_completion(const char *text, int start, int end){
                 }
             }
 
-            /* Run completer (use cache if same line/position) */
             char **candidates = NULL;
             int cand_count = 0;
-            char cand_buf[4096]; /* storage for parsed candidates from fresh run */
+            char cand_buf[4096];
 
             int line_changed = (strcmp(cached_line, rl_line_buffer) != 0 || cached_start != start);
             if(!line_changed && cached_cand_count >= 0){
-                /* reuse cached results */
                 candidates = cached_candidates;
                 cand_count = cached_cand_count;
             } else {
@@ -191,11 +185,11 @@ static char **shell_completion(const char *text, int start, int end){
                     close(pipefd[0]);
                     waitpid(pid, NULL, 0);
 
-                    /* free old cache */
+              
                     for(int i = 0; i < cached_cand_count; i++) free(cached_candidates[i]);
                     cached_cand_count = 0;
 
-                    /* parse lines */
+           
                     char *line2 = cand_buf;
                     while(*line2 && cand_count < 256){
                         char *nl = strchr(line2, '\n');
@@ -217,17 +211,17 @@ static char **shell_completion(const char *text, int start, int end){
             }
 
                 if(cand_count == 1){
-                    /* Unique match: insert it with trailing space */
+              
                     rl_delete_text(start, rl_end);
                     rl_point = start;
                     rl_insert_text(candidates[0]);
                     rl_insert_text(" ");
                     rl_redisplay();
                     tab_press_count = 0;
-                    /* clear cache so next TAB on changed line re-runs */
+
                     cached_line[0] = '\0';
                 } else if(cand_count > 1){
-                    /* Sort candidates alphabetically */
+ 
                     for(int i = 0; i < cand_count - 1; i++)
                         for(int j = i + 1; j < cand_count; j++)
                             if(strcmp(candidates[i], candidates[j]) > 0){
@@ -236,7 +230,6 @@ static char **shell_completion(const char *text, int start, int end){
                                 candidates[j] = tmp;
                             }
 
-                    /* Compute LCP of all candidates */
                     char lcp[1024];
                     strncpy(lcp, candidates[0], sizeof(lcp)-1);
                     lcp[sizeof(lcp)-1] = '\0';
@@ -250,7 +243,7 @@ static char **shell_completion(const char *text, int start, int end){
                     int lcp_len = strlen(lcp);
 
                     if(lcp_len > text_typed_len){
-                        /* LCP extends current input — complete to it, no bell */
+                        
                         rl_delete_text(start, rl_end);
                         rl_point = start;
                         rl_insert_text(lcp);
@@ -258,7 +251,7 @@ static char **shell_completion(const char *text, int start, int end){
                         tab_press_count = 0;
                         cached_line[0] = '\0';
                     } else {
-                        /* No new chars from LCP — bell then list */
+                        
                         tab_press_count++;
                         if(tab_press_count == 1){
                             write(STDOUT_FILENO, "\x07", 1);
@@ -523,7 +516,7 @@ int findInPath(const char *cmd, char *full_path, size_t size){
     return 0;
 }
 
-/* --- completion registry --- */
+/* comp registry */
 #define MAX_COMPLETIONS 256
 typedef struct {
     char *command;
@@ -650,7 +643,7 @@ int main(int argc, char *argv[]) {
         else if(strcmp(cmd, "complete") == 0){
             if(n >= 2 && strcmp(args[1], "-p") == 0){
                 if(n < 3){
-                    /* no command given */
+                    /* no command */
                 } else {
                     const char *script = find_completion(args[2]);
                     if(script)
