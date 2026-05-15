@@ -182,17 +182,57 @@ static char **shell_completion(const char *text, int start, int end){
                 close(pipefd[0]);
                 waitpid(pid, NULL, 0);
 
-                /* Strip trailing newline to get the single candidate */
-                while(total > 0 && (buf2[total-1] == '\n' || buf2[total-1] == '\r'))
-                    buf2[--total] = '\0';
+                /* Parse lines into candidates array */
+                char *candidates[256];
+                int cand_count = 0;
+                char *line = buf2;
+                while(*line && cand_count < 256){
+                    char *nl = strchr(line, '\n');
+                    if(nl) *nl = '\0';
+                    /* strip \r */
+                    int ll = strlen(line);
+                    if(ll > 0 && line[ll-1] == '\r') line[ll-1] = '\0';
+                    if(strlen(line) > 0)
+                        candidates[cand_count++] = line;
+                    if(nl) line = nl + 1;
+                    else break;
+                }
 
-                if(total > 0){
-                    /* Insert the completion replacing current text */
+                if(cand_count == 1){
+                    /* Unique match: insert it with trailing space */
                     rl_delete_text(start, rl_end);
                     rl_point = start;
-                    rl_insert_text(buf2);
+                    rl_insert_text(candidates[0]);
                     rl_insert_text(" ");
                     rl_redisplay();
+                    tab_press_count = 0;
+                } else if(cand_count > 1){
+                    /* Sort candidates alphabetically */
+                    for(int i = 0; i < cand_count - 1; i++)
+                        for(int j = i + 1; j < cand_count; j++)
+                            if(strcmp(candidates[i], candidates[j]) > 0){
+                                char *tmp = candidates[i];
+                                candidates[i] = candidates[j];
+                                candidates[j] = tmp;
+                            }
+
+                    tab_press_count++;
+                    if(tab_press_count == 1){
+                        /* First TAB: ring bell */
+                        write(STDOUT_FILENO, "\x07", 1);
+                    } else {
+                        /* Second TAB: display all candidates */
+                        printf("\n");
+                        for(int i = 0; i < cand_count; i++){
+                            printf("%s", candidates[i]);
+                            if(i < cand_count - 1) printf("  ");
+                        }
+                        printf("\n");
+                        fflush(stdout);
+                        rl_on_new_line();
+                        rl_redisplay();
+                        tab_press_count = 0;
+                    }
                 }
             }
             return NULL;
