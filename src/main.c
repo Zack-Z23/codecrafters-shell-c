@@ -425,7 +425,9 @@ int main(int argc, char *argv[]) {
                 printf("cd: %s: No such file or directory\n", target ? target : "");
         }
         else if(strcmp(cmd, "complete") == 0){
-            /* complete builtin - behavior to be implemented in later stages */
+            if(n >= 3 && strcmp(args[1], "-p") == 0){
+                printf("complete: %s: no completion specification\n", args[2]);
+            }
         }
         else {
             int target_fd;
