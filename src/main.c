@@ -8,7 +8,7 @@
 #include <readline/history.h>
 #include <dirent.h>
 #include <sys/stat.h>
-static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", NULL};
+static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", "complete", NULL};
 
 static int tab_press_count = 0;
 
@@ -327,7 +327,8 @@ int isBuiltIn(const char *temp){
            strcmp(temp, "exit") == 0 ||
            strcmp(temp, "type") == 0 ||
            strcmp(temp, "pwd") == 0 ||
-           strcmp(temp, "cd") == 0;
+           strcmp(temp, "cd") == 0 ||
+           strcmp(temp, "complete") == 0;
 }
 
 int findInPath(const char *cmd, char *full_path, size_t size){
@@ -422,6 +423,9 @@ int main(int argc, char *argv[]) {
             char *target = (n < 2 || strcmp(args[1], "~") == 0) ? getenv("HOME") : args[1];
             if(target == NULL || chdir(target) != 0)
                 printf("cd: %s: No such file or directory\n", target ? target : "");
+        }
+        else if(strcmp(cmd, "complete") == 0){
+            /* complete builtin - behavior to be implemented in later stages */
         }
         else {
             int target_fd;
