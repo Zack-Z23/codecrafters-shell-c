@@ -131,26 +131,27 @@ static char **shell_completion(const char *text, int start, int end){
                 char linebuf[4096];
                 strncpy(linebuf, rl_line_buffer, sizeof(linebuf));
                 linebuf[sizeof(linebuf)-1] = '\0';
-                /* only look at chars before start */
+                /* Truncate at start: everything before start are complete tokens */
                 if(start < (int)sizeof(linebuf)) linebuf[start] = '\0';
 
-                char last[1024] = "";
-                char second_last[1024] = "";
+                /* Collect all tokens; prev_word = the last one (skip cmd at index 0) */
                 char *p = linebuf;
+                int tok_index = 0;
                 while(*p){
                     while(*p == ' ') p++;
                     if(*p == '\0') break;
                     char *tok_start = p;
                     while(*p && *p != ' ') p++;
                     int tok_len = p - tok_start;
-                    if(tok_len > 0 && tok_len < (int)sizeof(last)){
-                        strncpy(second_last, last, sizeof(second_last));
-                        strncpy(last, tok_start, tok_len);
-                        last[tok_len] = '\0';
+                    if(tok_len > 0 && tok_index > 0){
+                        /* keep overwriting — we want the last one */
+                        int copy_len = tok_len < (int)sizeof(prev_word)-1 ? tok_len : (int)sizeof(prev_word)-1;
+                        strncpy(prev_word, tok_start, copy_len);
+                        prev_word[copy_len] = '\0';
                     }
+                    tok_index++;
                 }
-                /* second_last is the word before the current partial word */
-                strncpy(prev_word, second_last, sizeof(prev_word));
+                /* if only the command name was before start, prev_word stays "" */
             }
 
             /* Run the completer script and capture stdout */
