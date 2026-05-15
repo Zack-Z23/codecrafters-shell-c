@@ -123,6 +123,36 @@ static char **shell_completion(const char *text, int start, int end){
         if(script){
             rl_attempted_completion_over = 1;
 
+            /* Determine the word before the one being completed (argv[3]).
+               Walk rl_line_buffer up to 'start', collect tokens, prev is
+               the last complete token before the current word. */
+            char prev_word[1024] = "";
+            {
+                char linebuf[4096];
+                strncpy(linebuf, rl_line_buffer, sizeof(linebuf));
+                linebuf[sizeof(linebuf)-1] = '\0';
+                /* only look at chars before start */
+                if(start < (int)sizeof(linebuf)) linebuf[start] = '\0';
+
+                char last[1024] = "";
+                char second_last[1024] = "";
+                char *p = linebuf;
+                while(*p){
+                    while(*p == ' ') p++;
+                    if(*p == '\0') break;
+                    char *tok_start = p;
+                    while(*p && *p != ' ') p++;
+                    int tok_len = p - tok_start;
+                    if(tok_len > 0 && tok_len < (int)sizeof(last)){
+                        strncpy(second_last, last, sizeof(second_last));
+                        strncpy(last, tok_start, tok_len);
+                        last[tok_len] = '\0';
+                    }
+                }
+                /* second_last is the word before the current partial word */
+                strncpy(prev_word, second_last, sizeof(prev_word));
+            }
+
             /* Run the completer script and capture stdout */
             int pipefd[2];
             if(pipe(pipefd) == 0){
@@ -131,7 +161,8 @@ static char **shell_completion(const char *text, int start, int end){
                     close(pipefd[0]);
                     dup2(pipefd[1], STDOUT_FILENO);
                     close(pipefd[1]);
-                    execlp(script, script, NULL);
+                    /* argv[1]=command, argv[2]=word being completed, argv[3]=prev word */
+                    execlp(script, script, cmd_name, text, prev_word, NULL);
                     exit(1);
                 }
                 close(pipefd[1]);
