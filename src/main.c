@@ -12,6 +12,12 @@ static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", "complete
 
 static int tab_press_count = 0;
 
+/* cached completer results for double-TAB display */
+static char *cached_candidates[256];
+static int cached_cand_count = 0;
+static char cached_line[4096] = "";
+static int cached_start = -1;
+
 static char *builtins_generator(const char *text, int state){
     static int idx;
     static int len;
@@ -124,8 +130,7 @@ static char **shell_completion(const char *text, int start, int end){
             rl_attempted_completion_over = 1;
 
             /* Determine the word before the one being completed (argv[3]).
-               Walk rl_line_buffer up to 'start', collect tokens, prev is
-               the last complete token before the current word. */
+               Walk rl_line_buffer up to 'start', prev_word = last complete token. */
             char prev_word[1024] = "";
             {
                 char linebuf[4096];
@@ -134,69 +139,82 @@ static char **shell_completion(const char *text, int start, int end){
                 /* Truncate at start: everything before start are complete tokens */
                 if(start < (int)sizeof(linebuf)) linebuf[start] = '\0';
 
-                /* Collect all tokens; prev_word = the last one (skip cmd at index 0) */
+                /* prev_word = last token (all tokens, including cmd at index 0) */
                 char *p = linebuf;
-                int tok_index = 0;
                 while(*p){
                     while(*p == ' ') p++;
                     if(*p == '\0') break;
                     char *tok_start = p;
                     while(*p && *p != ' ') p++;
                     int tok_len = p - tok_start;
-                    if(tok_len > 0 && tok_index > 0){
-                        /* keep overwriting — we want the last one */
+                    if(tok_len > 0){
                         int copy_len = tok_len < (int)sizeof(prev_word)-1 ? tok_len : (int)sizeof(prev_word)-1;
                         strncpy(prev_word, tok_start, copy_len);
                         prev_word[copy_len] = '\0';
                     }
-                    tok_index++;
                 }
-                /* if only the command name was before start, prev_word stays "" */
             }
 
-            /* Run the completer script and capture stdout */
-            int pipefd[2];
-            if(pipe(pipefd) == 0){
-                pid_t pid = fork();
-                if(pid == 0){
-                    close(pipefd[0]);
-                    dup2(pipefd[1], STDOUT_FILENO);
+            /* Run completer (use cache if same line/position) */
+            char **candidates = NULL;
+            int cand_count = 0;
+            char cand_buf[4096]; /* storage for parsed candidates from fresh run */
+
+            int line_changed = (strcmp(cached_line, rl_line_buffer) != 0 || cached_start != start);
+            if(!line_changed && cached_cand_count >= 0){
+                /* reuse cached results */
+                candidates = cached_candidates;
+                cand_count = cached_cand_count;
+            } else {
+                /* fresh run */
+                int pipefd[2];
+                if(pipe(pipefd) == 0){
+                    pid_t pid = fork();
+                    if(pid == 0){
+                        close(pipefd[0]);
+                        dup2(pipefd[1], STDOUT_FILENO);
+                        close(pipefd[1]);
+                        setenv("COMP_LINE", rl_line_buffer, 1);
+                        char comp_point_str[32];
+                        snprintf(comp_point_str, sizeof(comp_point_str), "%d", rl_point);
+                        setenv("COMP_POINT", comp_point_str, 1);
+                        execlp(script, script, cmd_name, text, prev_word, NULL);
+                        exit(1);
+                    }
                     close(pipefd[1]);
-                    /* Set COMP_LINE and COMP_POINT for the completer */
-                    setenv("COMP_LINE", rl_line_buffer, 1);
-                    char comp_point_str[32];
-                    snprintf(comp_point_str, sizeof(comp_point_str), "%d", rl_point);
-                    setenv("COMP_POINT", comp_point_str, 1);
-                    /* argv[1]=command, argv[2]=word being completed, argv[3]=prev word */
-                    execlp(script, script, cmd_name, text, prev_word, NULL);
-                    exit(1);
-                }
-                close(pipefd[1]);
 
-                char buf2[4096];
-                int total = 0;
-                ssize_t n;
-                while((n = read(pipefd[0], buf2 + total, sizeof(buf2) - total - 1)) > 0)
-                    total += n;
-                buf2[total] = '\0';
-                close(pipefd[0]);
-                waitpid(pid, NULL, 0);
+                    int total = 0;
+                    ssize_t n;
+                    while((n = read(pipefd[0], cand_buf + total, sizeof(cand_buf) - total - 1)) > 0)
+                        total += n;
+                    cand_buf[total] = '\0';
+                    close(pipefd[0]);
+                    waitpid(pid, NULL, 0);
 
-                /* Parse lines into candidates array */
-                char *candidates[256];
-                int cand_count = 0;
-                char *line = buf2;
-                while(*line && cand_count < 256){
-                    char *nl = strchr(line, '\n');
-                    if(nl) *nl = '\0';
-                    /* strip \r */
-                    int ll = strlen(line);
-                    if(ll > 0 && line[ll-1] == '\r') line[ll-1] = '\0';
-                    if(strlen(line) > 0)
-                        candidates[cand_count++] = line;
-                    if(nl) line = nl + 1;
-                    else break;
+                    /* free old cache */
+                    for(int i = 0; i < cached_cand_count; i++) free(cached_candidates[i]);
+                    cached_cand_count = 0;
+
+                    /* parse lines */
+                    char *line2 = cand_buf;
+                    while(*line2 && cand_count < 256){
+                        char *nl = strchr(line2, '\n');
+                        if(nl) *nl = '\0';
+                        int ll = strlen(line2);
+                        if(ll > 0 && line2[ll-1] == '\r') line2[ll-1] = '\0';
+                        if(strlen(line2) > 0){
+                            cached_candidates[cand_count++] = strdup(line2);
+                        }
+                        if(nl) line2 = nl + 1;
+                        else break;
+                    }
+                    cached_cand_count = cand_count;
+                    strncpy(cached_line, rl_line_buffer, sizeof(cached_line)-1);
+                    cached_line[sizeof(cached_line)-1] = '\0';
+                    cached_start = start;
+                    candidates = cached_candidates;
                 }
+            }
 
                 if(cand_count == 1){
                     /* Unique match: insert it with trailing space */
@@ -206,6 +224,8 @@ static char **shell_completion(const char *text, int start, int end){
                     rl_insert_text(" ");
                     rl_redisplay();
                     tab_press_count = 0;
+                    /* clear cache so next TAB on changed line re-runs */
+                    cached_line[0] = '\0';
                 } else if(cand_count > 1){
                     /* Sort candidates alphabetically */
                     for(int i = 0; i < cand_count - 1; i++)
@@ -232,9 +252,9 @@ static char **shell_completion(const char *text, int start, int end){
                         rl_on_new_line();
                         rl_redisplay();
                         tab_press_count = 0;
+                        cached_line[0] = '\0';
                     }
                 }
-            }
             return NULL;
         }
     }
