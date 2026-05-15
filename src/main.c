@@ -346,6 +346,38 @@ int findInPath(const char *cmd, char *full_path, size_t size){
     return 0;
 }
 
+/* --- completion registry --- */
+#define MAX_COMPLETIONS 256
+typedef struct {
+    char *command;
+    char *script;
+} CompletionEntry;
+
+static CompletionEntry completion_registry[MAX_COMPLETIONS];
+static int completion_count = 0;
+
+static const char *find_completion(const char *command){
+    for(int i = 0; i < completion_count; i++)
+        if(strcmp(completion_registry[i].command, command) == 0)
+            return completion_registry[i].script;
+    return NULL;
+}
+
+static void register_completion(const char *command, const char *script){
+    for(int i = 0; i < completion_count; i++){
+        if(strcmp(completion_registry[i].command, command) == 0){
+            free(completion_registry[i].script);
+            completion_registry[i].script = strdup(script);
+            return;
+        }
+    }
+    if(completion_count < MAX_COMPLETIONS){
+        completion_registry[completion_count].command = strdup(command);
+        completion_registry[completion_count].script  = strdup(script);
+        completion_count++;
+    }
+}
+
 int main(int argc, char *argv[]) {
     setbuf(stdout, NULL);
     rl_attempted_completion_function = shell_completion;
@@ -425,8 +457,19 @@ int main(int argc, char *argv[]) {
                 printf("cd: %s: No such file or directory\n", target ? target : "");
         }
         else if(strcmp(cmd, "complete") == 0){
-            if(n >= 3 && strcmp(args[1], "-p") == 0){
-                printf("complete: %s: no completion specification\n", args[2]);
+            if(n >= 2 && strcmp(args[1], "-p") == 0){
+                if(n < 3){
+                    /* no command given — could list all, for now do nothing */
+                } else {
+                    const char *script = find_completion(args[2]);
+                    if(script)
+                        printf("complete -C '%s' %s\n", script, args[2]);
+                    else
+                        printf("complete: %s: no completion specification\n", args[2]);
+                }
+            } else if(n >= 4 && strcmp(args[1], "-C") == 0){
+                /* complete -C <script> <command> */
+                register_completion(args[3], args[2]);
             }
         }
         else {
