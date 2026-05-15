@@ -236,23 +236,45 @@ static char **shell_completion(const char *text, int start, int end){
                                 candidates[j] = tmp;
                             }
 
-                    tab_press_count++;
-                    if(tab_press_count == 1){
-                        /* First TAB: ring bell */
-                        write(STDOUT_FILENO, "\x07", 1);
-                    } else {
-                        /* Second TAB: display all candidates */
-                        printf("\n");
-                        for(int i = 0; i < cand_count; i++){
-                            printf("%s", candidates[i]);
-                            if(i < cand_count - 1) printf("  ");
-                        }
-                        printf("\n");
-                        fflush(stdout);
-                        rl_on_new_line();
+                    /* Compute LCP of all candidates */
+                    char lcp[1024];
+                    strncpy(lcp, candidates[0], sizeof(lcp)-1);
+                    lcp[sizeof(lcp)-1] = '\0';
+                    for(int i = 1; i < cand_count; i++){
+                        int j = 0;
+                        while(lcp[j] && candidates[i][j] && lcp[j] == candidates[i][j]) j++;
+                        lcp[j] = '\0';
+                    }
+
+                    int text_typed_len = strlen(text);
+                    int lcp_len = strlen(lcp);
+
+                    if(lcp_len > text_typed_len){
+                        /* LCP extends current input — complete to it, no bell */
+                        rl_delete_text(start, rl_end);
+                        rl_point = start;
+                        rl_insert_text(lcp);
                         rl_redisplay();
                         tab_press_count = 0;
                         cached_line[0] = '\0';
+                    } else {
+                        /* No new chars from LCP — bell then list */
+                        tab_press_count++;
+                        if(tab_press_count == 1){
+                            write(STDOUT_FILENO, "\x07", 1);
+                        } else {
+                            printf("\n");
+                            for(int i = 0; i < cand_count; i++){
+                                printf("%s", candidates[i]);
+                                if(i < cand_count - 1) printf("  ");
+                            }
+                            printf("\n");
+                            fflush(stdout);
+                            rl_on_new_line();
+                            rl_redisplay();
+                            tab_press_count = 0;
+                            cached_line[0] = '\0';
+                        }
                     }
                 }
             return NULL;
