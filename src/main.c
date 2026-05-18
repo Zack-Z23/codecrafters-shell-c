@@ -13,7 +13,17 @@ static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", "complete
 
 static int tab_press_count = 0;
 static int next_job_number = 1;
-
+static int alloc_job_number(void){
+    for(int n = 1; ; n++){
+        int taken = 0;
+        for(int i = 0; i < MAX_JOBS; i++){
+            if(job_table[i].active && job_table[i].job_number == n){
+                taken = 1; break;
+            }
+        }
+        if(!taken) return n;
+    }
+}
 #define MAX_JOBS 256
 typedef struct {
     int job_number;
@@ -807,7 +817,8 @@ int main(int argc, char *argv[]) {
                     exit(1);
                 } else {
                     if(background){
-                        int job_num = next_job_number++;
+                        int job_num = alloc_job_number();
+                        if(job_num >= next_job_number) next_job_number = job_num + 1;
                         printf("[%d] %d\n", job_num, (int)pid);
                         fflush(stdout);
                         char cmd_str[4096] = "";
