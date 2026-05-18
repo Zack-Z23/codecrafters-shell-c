@@ -11,6 +11,7 @@
 static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", "complete", "jobs", NULL};
 
 static int tab_press_count = 0;
+static int next_job_number = 1;
 
 static char *cached_candidates[256];
 static int cached_cand_count = 0;
