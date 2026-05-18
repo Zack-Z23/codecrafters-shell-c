@@ -8,11 +8,10 @@
 #include <readline/history.h>
 #include <dirent.h>
 #include <sys/stat.h>
-static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", "complete", NULL};
+static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", "complete", "jobs", NULL};
 
 static int tab_press_count = 0;
 
-/* cached completer results for double-TAB display */
 static char *cached_candidates[256];
 static int cached_cand_count = 0;
 static char cached_line[4096] = "";
@@ -498,7 +497,8 @@ int isBuiltIn(const char *temp){
            strcmp(temp, "type") == 0 ||
            strcmp(temp, "pwd") == 0 ||
            strcmp(temp, "cd") == 0 ||
-           strcmp(temp, "complete") == 0;
+           strcmp(temp, "complete") == 0 ||
+           strcmp(temp, "jobs") == 0;
 }
 
 int findInPath(const char *cmd, char *full_path, size_t size){
@@ -656,6 +656,9 @@ int main(int argc, char *argv[]) {
             } else if(n >= 4 && strcmp(args[1], "-C") == 0){
                 register_completion(args[3], args[2]);
             }
+        }
+        else if(strcmp(cmd, "jobs") == 0){
+            /* empty implementation: no output when no background jobs */
         }
         else {
             int target_fd;
