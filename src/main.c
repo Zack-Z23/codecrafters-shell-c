@@ -625,6 +625,16 @@ static void reap_jobs(void){
 }
 
 static void print_jobs(void){
+    /* First mark any exited jobs as done */
+    for(int i = 0; i < MAX_JOBS; i++){
+        if(!job_table[i].active || job_table[i].done) continue;
+        int status = 0;
+        pid_t r = waitpid(job_table[i].pid, &status, WNOHANG);
+        if(r == job_table[i].pid && WIFEXITED(status))
+            job_table[i].done = 1;
+    }
+
+
     int cur_num = -1, prev_num = -1;
     for(int i = 0; i < MAX_JOBS; i++){
         if(!job_table[i].active) continue;
@@ -632,15 +642,35 @@ static void print_jobs(void){
         if(jn > cur_num){ prev_num = cur_num; cur_num = jn; }
         else if(jn > prev_num){ prev_num = jn; }
     }
+
+  
     for(int pass = 1; pass < next_job_number; pass++){
         for(int i = 0; i < MAX_JOBS; i++){
             if(!job_table[i].active || job_table[i].job_number != pass) continue;
+
             char marker;
             if(job_table[i].job_number == cur_num)       marker = '+';
             else if(job_table[i].job_number == prev_num) marker = '-';
             else                                          marker = ' ';
-            printf("[%d]%c  %-24s%s\n",
-                   job_table[i].job_number, marker, "Running", job_table[i].command);
+
+            if(job_table[i].done){
+                char display[4096];
+                strncpy(display, job_table[i].command, sizeof(display)-1);
+                display[sizeof(display)-1] = '\0';
+                int dlen = strlen(display);
+                if(dlen >= 2 && strcmp(display + dlen - 2, " &") == 0)
+                    display[dlen - 2] = '\0';
+                printf("[%d]%c  %-24s%s\n", job_table[i].job_number, marker, "Done", display);
+                fflush(stdout);
+                free(job_table[i].command);
+                job_table[i].command = NULL;
+                job_table[i].active  = 0;
+                job_table[i].done    = 0;
+                job_count--;
+            } else {
+                printf("[%d]%c  %-24s%s\n",
+                       job_table[i].job_number, marker, "Running", job_table[i].command);
+            }
         }
     }
 }
