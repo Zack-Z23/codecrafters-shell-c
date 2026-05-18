@@ -662,6 +662,15 @@ int main(int argc, char *argv[]) {
             /* empty implementation: no output when no background jobs */
         }
         else {
+            /* detect background operator & as last token */
+            int background = 0;
+            if(n > 0 && strcmp(args[n-1], "&") == 0){
+                background = 1;
+                free(args[n-1]);
+                args[n-1] = NULL;
+                n--;
+            }
+
             int target_fd;
             int append = 0;
             int fd;
@@ -688,7 +697,12 @@ int main(int argc, char *argv[]) {
                     perror("execv");
                     exit(1);
                 } else {
-                    waitpid(pid, NULL, 0);
+                    if(background){
+                        printf("[%d] %d\n", next_job_number++, (int)pid);
+                        fflush(stdout);
+                    } else {
+                        waitpid(pid, NULL, 0);
+                    }
                 }
             }
 
