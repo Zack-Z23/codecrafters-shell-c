@@ -589,6 +589,73 @@ static void remove_completion(const char *command){
     }
 }
 
+/* Reap exited background jobs and print Done lines. */
+static void reap_jobs(void){
+    /* check for exits */
+    for(int i = 0; i < MAX_JOBS; i++){
+        if(!job_table[i].active) continue;
+        int status = 0;
+        pid_t r = waitpid(job_table[i].pid, &status, WNOHANG);
+        if(r == job_table[i].pid && WIFEXITED(status))
+            job_table[i].done = 1;
+    }
+
+    /* compute markers across all still-active jobs */
+    int cur_num = -1, prev_num = -1;
+    for(int i = 0; i < MAX_JOBS; i++){
+        if(!job_table[i].active) continue;
+        int jn = job_table[i].job_number;
+        if(jn > cur_num){ prev_num = cur_num; cur_num = jn; }
+        else if(jn > prev_num){ prev_num = jn; }
+    }
+
+    /* print and remove done jobs in order */
+    for(int pass = 1; pass < next_job_number; pass++){
+        for(int i = 0; i < MAX_JOBS; i++){
+            if(!job_table[i].active || job_table[i].job_number != pass) continue;
+            if(!job_table[i].done) continue;
+            char marker;
+            if(job_table[i].job_number == cur_num)       marker = '+';
+            else if(job_table[i].job_number == prev_num) marker = '-';
+            else                                          marker = ' ';
+            char display[4096];
+            strncpy(display, job_table[i].command, sizeof(display)-1);
+            display[sizeof(display)-1] = '\0';
+            int dlen = strlen(display);
+            if(dlen >= 2 && strcmp(display + dlen - 2, " &") == 0)
+                display[dlen - 2] = '\0';
+            printf("[%d]%c  %-24s%s\n", job_table[i].job_number, marker, "Done", display);
+            free(job_table[i].command);
+            job_table[i].command = NULL;
+            job_table[i].active  = 0;
+            job_table[i].done    = 0;
+            job_count--;
+        }
+    }
+}
+
+/* Print all active (non-done) jobs — used by the jobs builtin. */
+static void print_jobs(void){
+    int cur_num = -1, prev_num = -1;
+    for(int i = 0; i < MAX_JOBS; i++){
+        if(!job_table[i].active) continue;
+        int jn = job_table[i].job_number;
+        if(jn > cur_num){ prev_num = cur_num; cur_num = jn; }
+        else if(jn > prev_num){ prev_num = jn; }
+    }
+    for(int pass = 1; pass < next_job_number; pass++){
+        for(int i = 0; i < MAX_JOBS; i++){
+            if(!job_table[i].active || job_table[i].job_number != pass) continue;
+            char marker;
+            if(job_table[i].job_number == cur_num)       marker = '+';
+            else if(job_table[i].job_number == prev_num) marker = '-';
+            else                                          marker = ' ';
+            printf("[%d]%c  %-24s%s\n",
+                   job_table[i].job_number, marker, "Running", job_table[i].command);
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     setbuf(stdout, NULL);
     rl_attempted_completion_function = shell_completion;
@@ -596,6 +663,7 @@ int main(int argc, char *argv[]) {
     char *command;
 
     while(1){
+        reap_jobs();         /* print Done lines before showing the prompt */
         command = readline("$ ");
         if(!command) break;
         if(command[0] == '\0'){
@@ -685,61 +753,8 @@ int main(int argc, char *argv[]) {
             }
         }
         else if(strcmp(cmd, "jobs") == 0){
-            /* first pass: check each job for normal exit (reap without blocking) */
-            for(int i = 0; i < MAX_JOBS; i++){
-                if(!job_table[i].active) continue;
-                int status = 0;
-                pid_t r = waitpid(job_table[i].pid, &status, WNOHANG);
-                if(r == job_table[i].pid && WIFEXITED(status))
-                    job_table[i].done = 1; /* mark done but keep for printing */
-            }
-
-            /* find the two most recently started active jobs for markers */
-            int cur_num  = -1;
-            int prev_num = -1;
-            for(int i = 0; i < MAX_JOBS; i++){
-                if(!job_table[i].active) continue;
-                int jn = job_table[i].job_number;
-                if(jn > cur_num){
-                    prev_num = cur_num;
-                    cur_num  = jn;
-                } else if(jn > prev_num){
-                    prev_num = jn;
-                }
-            }
-
-            /* print all active jobs in job-number order; remove done ones after */
-            for(int pass = 1; pass < next_job_number; pass++){
-                for(int i = 0; i < MAX_JOBS; i++){
-                    if(!job_table[i].active || job_table[i].job_number != pass) continue;
-                    char marker;
-                    if(job_table[i].job_number == cur_num)       marker = '+';
-                    else if(job_table[i].job_number == prev_num) marker = '-';
-                    else                                          marker = ' ';
-
-                    if(job_table[i].done){
-                        /* strip trailing " &" from stored command for Done display */
-                        char display[4096];
-                        strncpy(display, job_table[i].command, sizeof(display)-1);
-                        display[sizeof(display)-1] = '\0';
-                        int dlen = strlen(display);
-                        if(dlen >= 2 && strcmp(display + dlen - 2, " &") == 0)
-                            display[dlen - 2] = '\0';
-                        printf("[%d]%c  %-24s%s\n",
-                               job_table[i].job_number, marker, "Done", display);
-                        /* remove from table */
-                        free(job_table[i].command);
-                        job_table[i].command = NULL;
-                        job_table[i].active  = 0;
-                        job_table[i].done    = 0;
-                        job_count--;
-                    } else {
-                        printf("[%d]%c  %-24s%s\n",
-                               job_table[i].job_number, marker, "Running",
-                               job_table[i].command);
-                    }
-                }
-            }
+            reap_jobs();   /* mark & display Done entries first */
+            print_jobs();  /* then show what's still Running */
         }
         else {
             /* detect background operator & as last token */
