@@ -684,20 +684,27 @@ int main(int argc, char *argv[]) {
             }
         }
         else if(strcmp(cmd, "jobs") == 0){
-            /* find the most recent active job number for the + marker */
-            int latest = -1;
+            /* find the two most recently started active jobs */
+            int cur_num  = -1; /* highest job number  → + */
+            int prev_num = -1; /* second highest      → - */
             for(int i = 0; i < MAX_JOBS; i++){
-                if(job_table[i].active){
-                    if(latest == -1 || job_table[i].job_number > job_table[latest].job_number)
-                        latest = i;
+                if(!job_table[i].active) continue;
+                int jn = job_table[i].job_number;
+                if(jn > cur_num){
+                    prev_num = cur_num;
+                    cur_num  = jn;
+                } else if(jn > prev_num){
+                    prev_num = jn;
                 }
             }
             /* print all active jobs in job-number order */
-            for(int pass = 1; pass <= next_job_number; pass++){
+            for(int pass = 1; pass < next_job_number; pass++){
                 for(int i = 0; i < MAX_JOBS; i++){
                     if(job_table[i].active && job_table[i].job_number == pass){
-                        char marker = (i == latest) ? '+' : '-';
-                        /* status field padded to 24 chars total */
+                        char marker;
+                        if(job_table[i].job_number == cur_num)       marker = '+';
+                        else if(job_table[i].job_number == prev_num) marker = '-';
+                        else                                          marker = ' ';
                         printf("[%d]%c  %-24s%s\n",
                                job_table[i].job_number,
                                marker,
