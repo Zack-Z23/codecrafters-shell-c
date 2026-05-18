@@ -13,6 +13,31 @@ static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", "complete
 static int tab_press_count = 0;
 static int next_job_number = 1;
 
+/* job table */
+#define MAX_JOBS 256
+typedef struct {
+    int job_number;
+    pid_t pid;
+    char *command;   /* full command string including & */
+    int active;      /* 1 = slot in use */
+} Job;
+
+static Job job_table[MAX_JOBS];
+static int job_count = 0;
+
+static void add_job(int job_number, pid_t pid, const char *command){
+    for(int i = 0; i < MAX_JOBS; i++){
+        if(!job_table[i].active){
+            job_table[i].job_number = job_number;
+            job_table[i].pid       = pid;
+            job_table[i].command   = strdup(command);
+            job_table[i].active    = 1;
+            job_count++;
+            return;
+        }
+    }
+}
+
 static char *cached_candidates[256];
 static int cached_cand_count = 0;
 static char cached_line[4096] = "";
@@ -659,7 +684,28 @@ int main(int argc, char *argv[]) {
             }
         }
         else if(strcmp(cmd, "jobs") == 0){
-            /* empty implementation: no output when no background jobs */
+            /* find the most recent active job number for the + marker */
+            int latest = -1;
+            for(int i = 0; i < MAX_JOBS; i++){
+                if(job_table[i].active){
+                    if(latest == -1 || job_table[i].job_number > job_table[latest].job_number)
+                        latest = i;
+                }
+            }
+            /* print all active jobs in job-number order */
+            for(int pass = 1; pass <= next_job_number; pass++){
+                for(int i = 0; i < MAX_JOBS; i++){
+                    if(job_table[i].active && job_table[i].job_number == pass){
+                        char marker = (i == latest) ? '+' : '-';
+                        /* status field padded to 24 chars total */
+                        printf("[%d]%c  %-24s%s\n",
+                               job_table[i].job_number,
+                               marker,
+                               "Running",
+                               job_table[i].command);
+                    }
+                }
+            }
         }
         else {
             /* detect background operator & as last token */
@@ -698,8 +744,17 @@ int main(int argc, char *argv[]) {
                     exit(1);
                 } else {
                     if(background){
-                        printf("[%d] %d\n", next_job_number++, (int)pid);
+                        int job_num = next_job_number++;
+                        printf("[%d] %d\n", job_num, (int)pid);
                         fflush(stdout);
+                        /* build "cmd arg1 arg2 &" string for the job table */
+                        char cmd_str[4096] = "";
+                        for(int j = 0; j < n; j++){
+                            if(j > 0) strncat(cmd_str, " ", sizeof(cmd_str)-strlen(cmd_str)-1);
+                            strncat(cmd_str, args[j], sizeof(cmd_str)-strlen(cmd_str)-1);
+                        }
+                        strncat(cmd_str, " &", sizeof(cmd_str)-strlen(cmd_str)-1);
+                        add_job(job_num, pid, cmd_str);
                     } else {
                         waitpid(pid, NULL, 0);
                     }
