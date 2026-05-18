@@ -36,7 +36,25 @@ static int alloc_job_number(void){
         if(!taken) return n;
     }
 }
-
+static int split_pipeline(char **args, int n, char ***segments, int *seg_lens, int max_segs){
+    int seg_count = 0;
+    int seg_start = 0;
+    segments[0] = args;
+    for(int i = 0; i <= n; i++){
+        if(i == n || (args[i] && strcmp(args[i], "|") == 0)){
+            seg_lens[seg_count] = i - seg_start;
+            seg_count++;
+            if(i < n){
+                free(args[i]);
+                args[i] = NULL;
+                seg_start = i + 1;
+                if(seg_count < max_segs)
+                    segments[seg_count] = args + seg_start;
+            }
+        }
+    }
+    return seg_count;
+}
 static void add_job(int job_number, pid_t pid, const char *command){
     for(int i = 0; i < MAX_JOBS; i++){
         if(!job_table[i].active){
@@ -784,7 +802,7 @@ int main(int argc, char *argv[]) {
 
             print_jobs();
         }
-        else {
+    else {
             int background = 0;
             if(n > 0 && strcmp(args[n-1], "&") == 0){
                 background = 1;
@@ -793,51 +811,106 @@ int main(int argc, char *argv[]) {
                 n--;
             }
 
-            int target_fd;
-            int append = 0;
-            int fd;
-            char *outfile = extractRedirect(args, &n, &target_fd, &append);
-
-            char full_path[4096];
-            if(!findInPath(cmd, full_path, sizeof(full_path))){
-                fprintf(stderr, "%s: not found\n", cmd);
-            } else {
-                pid_t pid = fork();
-                if(pid == 0){
-                    if(outfile){
-                        if(append == 1)
-                            fd = open(outfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
-                        else
-                            fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                        if(fd < 0){ perror("open"); exit(1); }
-                        dup2(fd, target_fd);
-                        close(fd);
-                    }
-                    execv(full_path, args);
-                    perror("execv");
-                    exit(1);
-                } else {
-                    if(background){
-                        int job_num = alloc_job_number();
-                        if(job_num >= next_job_number) next_job_number = job_num + 1;
-                        printf("[%d] %d\n", job_num, (int)pid);
-                        fflush(stdout);
-                        char cmd_str[4096] = "";
-                        for(int j = 0; j < n; j++){
-                            if(j > 0) strncat(cmd_str, " ", sizeof(cmd_str)-strlen(cmd_str)-1);
-                            strncat(cmd_str, args[j], sizeof(cmd_str)-strlen(cmd_str)-1);
-                        }
-                        strncat(cmd_str, " &", sizeof(cmd_str)-strlen(cmd_str)-1);
-                        add_job(job_num, pid, cmd_str);
-                    } else {
-                        waitpid(pid, NULL, 0);
-                    }
-                }
+            /* check for pipeline */
+            int has_pipe = 0;
+            for(int i = 0; i < n; i++){
+                if(strcmp(args[i], "|") == 0){ has_pipe = 1; break; }
             }
 
-            if(outfile) free(outfile);
-        }
+            if(has_pipe){
+                char **segments[64];
+                int seg_lens[64];
+                int seg_count = split_pipeline(args, n, segments, seg_lens, 64);
 
+                int pipefds[63][2];
+                pid_t pids[64];
+
+                for(int s = 0; s < seg_count - 1; s++)
+                    pipe(pipefds[s]);
+
+                for(int s = 0; s < seg_count; s++){
+                    char **sargs = segments[s];
+                    int slen = seg_lens[s];
+                    sargs[slen] = NULL;
+
+                    char full_path[4096];
+                    if(!findInPath(sargs[0], full_path, sizeof(full_path))){
+                        fprintf(stderr, "%s: not found\n", sargs[0]);
+                        pids[s] = -1;
+                        continue;
+                    }
+
+                    pid_t pid = fork();
+                    if(pid == 0){
+                        if(s > 0)
+                            dup2(pipefds[s-1][0], STDIN_FILENO);
+                        if(s < seg_count - 1)
+                            dup2(pipefds[s][1], STDOUT_FILENO);
+                        for(int p = 0; p < seg_count - 1; p++){
+                            close(pipefds[p][0]);
+                            close(pipefds[p][1]);
+                        }
+                        execv(full_path, sargs);
+                        perror("execv");
+                        exit(1);
+                    }
+                    pids[s] = pid;
+                }
+
+                for(int p = 0; p < seg_count - 1; p++){
+                    close(pipefds[p][0]);
+                    close(pipefds[p][1]);
+                }
+
+                for(int s = 0; s < seg_count; s++)
+                    if(pids[s] != -1) waitpid(pids[s], NULL, 0);
+
+            } else {
+                int target_fd;
+                int append = 0;
+                int fd;
+                char *outfile = extractRedirect(args, &n, &target_fd, &append);
+
+                char full_path[4096];
+                if(!findInPath(cmd, full_path, sizeof(full_path))){
+                    fprintf(stderr, "%s: not found\n", cmd);
+                } else {
+                    pid_t pid = fork();
+                    if(pid == 0){
+                        if(outfile){
+                            if(append == 1)
+                                fd = open(outfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
+                            else
+                                fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                            if(fd < 0){ perror("open"); exit(1); }
+                            dup2(fd, target_fd);
+                            close(fd);
+                        }
+                        execv(full_path, args);
+                        perror("execv");
+                        exit(1);
+                    } else {
+                        if(background){
+                            int job_num = alloc_job_number();
+                            if(job_num >= next_job_number) next_job_number = job_num + 1;
+                            printf("[%d] %d\n", job_num, (int)pid);
+                            fflush(stdout);
+                            char cmd_str[4096] = "";
+                            for(int j = 0; j < n; j++){
+                                if(j > 0) strncat(cmd_str, " ", sizeof(cmd_str)-strlen(cmd_str)-1);
+                                strncat(cmd_str, args[j], sizeof(cmd_str)-strlen(cmd_str)-1);
+                            }
+                            strncat(cmd_str, " &", sizeof(cmd_str)-strlen(cmd_str)-1);
+                            add_job(job_num, pid, cmd_str);
+                        } else {
+                            waitpid(pid, NULL, 0);
+                        }
+                    }
+                }
+
+                if(outfile) free(outfile);
+            }
+        }
         for(int j = 0; j < n; j++) free(args[j]);
         free(command);
     }
