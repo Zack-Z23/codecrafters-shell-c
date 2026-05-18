@@ -841,21 +841,62 @@ int main(int argc, char *argv[]) {
                     }
 
                     pid_t pid = fork();
-                    if(pid == 0){
-                        if(s > 0)
-                            dup2(pipefds[s-1][0], STDIN_FILENO);
+
+                        if(pid == 0){
+                            if(s > 0)
+                             dup2(pipefds[s-1][0], STDIN_FILENO);
                         if(s < seg_count - 1)
-                            dup2(pipefds[s][1], STDOUT_FILENO);
+                        dup2(pipefds[s][1], STDOUT_FILENO);
+
                         for(int p = 0; p < seg_count - 1; p++){
                             close(pipefds[p][0]);
                             close(pipefds[p][1]);
                         }
-                        execv(full_path, sargs);
-                        perror("execv");
-                        exit(1);
-                    }
-                    pids[s] = pid;
+
+    if(isBuiltIn(sargs[0])){
+        if(strcmp(sargs[0], "echo") == 0){
+            for(int j = 1; j < slen; j++){
+                if(j > 1) printf(" ");
+                printf("%s", sargs[j]);
+            }
+            printf("\n");
+        }
+        else if(strcmp(sargs[0], "type") == 0){
+            if(slen >= 2){
+                char *arg = sargs[1];
+                if(isBuiltIn(arg)){
+                    printf("%s is a shell builtin\n", arg);
+                } else {
+                    char full_path[4096];
+                    if(findInPath(arg, full_path, sizeof(full_path)))
+                        printf("%s is %s\n", arg, full_path);
+                    else
+                        printf("%s: not found\n", arg);
                 }
+            }
+        }
+        else if(strcmp(sargs[0], "pwd") == 0){
+            char cwd[4096];
+            if(getcwd(cwd, sizeof(cwd)))
+                printf("%s\n", cwd);
+         }
+
+               exit(0);
+         }
+
+            char full_path[4096];
+            if(!findInPath(sargs[0], full_path, sizeof(full_path))){
+                 fprintf(stderr, "%s: not found\n", sargs[0]);
+        exit(1);
+                 }
+
+         execv(full_path, sargs);
+         perror("execv");
+          exit(1);
+            }
+
+            pids[s] = pid;                
+            }
 
                 for(int p = 0; p < seg_count - 1; p++){
                     close(pipefds[p][0]);
