@@ -8,19 +8,19 @@
 #include <readline/history.h>
 #include <dirent.h>
 #include <sys/stat.h>
+
 static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", "complete", "jobs", NULL};
 
 static int tab_press_count = 0;
 static int next_job_number = 1;
 
-/* job table */
 #define MAX_JOBS 256
 typedef struct {
     int job_number;
     pid_t pid;
-    char *command;   /* full command string including & */
-    int active;      /* 1 = slot in use */
-    int done;        /* 1 = exited, pending display */
+    char *command;
+    int active;
+    int done;
 } Job;
 
 static Job job_table[MAX_JOBS];
@@ -82,7 +82,7 @@ static char *builtins_generator(const char *text, int state){
                                 int dup = 0;
                                 for(int k = 0; k < match_count; k++){
                                     if(strcmp(matches[k], entry->d_name) == 0){
-                                     dup = 1; break; 
+                                        dup = 1; break;
                                     }
                                 }
                                 if(!dup){
@@ -106,6 +106,7 @@ static char *builtins_generator(const char *text, int state){
     matches = NULL;
     return NULL;
 }
+
 static char *filename_generator(const char *text, int state){
     static DIR *dp;
     static int len;
@@ -140,9 +141,7 @@ static char **shell_completion(const char *text, int start, int end){
         return rl_completion_matches(text, builtins_generator);
     }
 
-
     {
-
         char cmd_name[256];
         int ci = 0;
         const char *buf = rl_line_buffer;
@@ -160,7 +159,6 @@ static char **shell_completion(const char *text, int start, int end){
                 strncpy(linebuf, rl_line_buffer, sizeof(linebuf));
                 linebuf[sizeof(linebuf)-1] = '\0';
                 if(start < (int)sizeof(linebuf)) linebuf[start] = '\0';
-
 
                 char *p = linebuf;
                 while(*p){
@@ -186,7 +184,6 @@ static char **shell_completion(const char *text, int start, int end){
                 candidates = cached_candidates;
                 cand_count = cached_cand_count;
             } else {
-                /* fresh run */
                 int pipefd[2];
                 if(pipe(pipefd) == 0){
                     pid_t pid = fork();
@@ -211,11 +208,9 @@ static char **shell_completion(const char *text, int start, int end){
                     close(pipefd[0]);
                     waitpid(pid, NULL, 0);
 
-              
                     for(int i = 0; i < cached_cand_count; i++) free(cached_candidates[i]);
                     cached_cand_count = 0;
 
-           
                     char *line2 = cand_buf;
                     while(*line2 && cand_count < 256){
                         char *nl = strchr(line2, '\n');
@@ -236,66 +231,61 @@ static char **shell_completion(const char *text, int start, int end){
                 }
             }
 
-                if(cand_count == 1){
-              
+            if(cand_count == 1){
+                rl_delete_text(start, rl_end);
+                rl_point = start;
+                rl_insert_text(candidates[0]);
+                rl_insert_text(" ");
+                rl_redisplay();
+                tab_press_count = 0;
+                cached_line[0] = '\0';
+            } else if(cand_count > 1){
+                for(int i = 0; i < cand_count - 1; i++)
+                    for(int j = i + 1; j < cand_count; j++)
+                        if(strcmp(candidates[i], candidates[j]) > 0){
+                            char *tmp = candidates[i];
+                            candidates[i] = candidates[j];
+                            candidates[j] = tmp;
+                        }
+
+                char lcp[1024];
+                strncpy(lcp, candidates[0], sizeof(lcp)-1);
+                lcp[sizeof(lcp)-1] = '\0';
+                for(int i = 1; i < cand_count; i++){
+                    int j = 0;
+                    while(lcp[j] && candidates[i][j] && lcp[j] == candidates[i][j]) j++;
+                    lcp[j] = '\0';
+                }
+
+                int text_typed_len = strlen(text);
+                int lcp_len = strlen(lcp);
+
+                if(lcp_len > text_typed_len){
                     rl_delete_text(start, rl_end);
                     rl_point = start;
-                    rl_insert_text(candidates[0]);
-                    rl_insert_text(" ");
+                    rl_insert_text(lcp);
                     rl_redisplay();
                     tab_press_count = 0;
-
                     cached_line[0] = '\0';
-                } else if(cand_count > 1){
- 
-                    for(int i = 0; i < cand_count - 1; i++)
-                        for(int j = i + 1; j < cand_count; j++)
-                            if(strcmp(candidates[i], candidates[j]) > 0){
-                                char *tmp = candidates[i];
-                                candidates[i] = candidates[j];
-                                candidates[j] = tmp;
-                            }
-
-                    char lcp[1024];
-                    strncpy(lcp, candidates[0], sizeof(lcp)-1);
-                    lcp[sizeof(lcp)-1] = '\0';
-                    for(int i = 1; i < cand_count; i++){
-                        int j = 0;
-                        while(lcp[j] && candidates[i][j] && lcp[j] == candidates[i][j]) j++;
-                        lcp[j] = '\0';
-                    }
-
-                    int text_typed_len = strlen(text);
-                    int lcp_len = strlen(lcp);
-
-                    if(lcp_len > text_typed_len){
-                        
-                        rl_delete_text(start, rl_end);
-                        rl_point = start;
-                        rl_insert_text(lcp);
+                } else {
+                    tab_press_count++;
+                    if(tab_press_count == 1){
+                        write(STDOUT_FILENO, "\x07", 1);
+                    } else {
+                        printf("\n");
+                        for(int i = 0; i < cand_count; i++){
+                            printf("%s", candidates[i]);
+                            if(i < cand_count - 1) printf("  ");
+                        }
+                        printf("\n");
+                        fflush(stdout);
+                        rl_on_new_line();
                         rl_redisplay();
                         tab_press_count = 0;
                         cached_line[0] = '\0';
-                    } else {
-                        
-                        tab_press_count++;
-                        if(tab_press_count == 1){
-                            write(STDOUT_FILENO, "\x07", 1);
-                        } else {
-                            printf("\n");
-                            for(int i = 0; i < cand_count; i++){
-                                printf("%s", candidates[i]);
-                                if(i < cand_count - 1) printf("  ");
-                            }
-                            printf("\n");
-                            fflush(stdout);
-                            rl_on_new_line();
-                            rl_redisplay();
-                            tab_press_count = 0;
-                            cached_line[0] = '\0';
-                        }
                     }
                 }
+            }
             return NULL;
         }
     }
@@ -441,6 +431,7 @@ static char **shell_completion(const char *text, int start, int end){
     free(matches);
     return NULL;
 }
+
 int parseArgs(char *input, char **args, int max_args) {
     int argc = 0;
     int i = 0;
@@ -543,7 +534,6 @@ int findInPath(const char *cmd, char *full_path, size_t size){
     return 0;
 }
 
-/* comp registry */
 #define MAX_COMPLETIONS 256
 typedef struct {
     char *command;
@@ -580,7 +570,6 @@ static void remove_completion(const char *command){
         if(strcmp(completion_registry[i].command, command) == 0){
             free(completion_registry[i].command);
             free(completion_registry[i].script);
-            /* shift remaining entries down */
             for(int j = i; j < completion_count - 1; j++)
                 completion_registry[j] = completion_registry[j+1];
             completion_count--;
@@ -589,42 +578,43 @@ static void remove_completion(const char *command){
     }
 }
 
-/* Reap exited background jobs and print Done lines. */
 static void reap_jobs(void){
-    /* check for exits */
     for(int i = 0; i < MAX_JOBS; i++){
-        if(!job_table[i].active) continue;
+        if(!job_table[i].active || job_table[i].done) continue;
         int status = 0;
         pid_t r = waitpid(job_table[i].pid, &status, WNOHANG);
         if(r == job_table[i].pid && WIFEXITED(status))
             job_table[i].done = 1;
     }
 
-    /* compute markers across all still-active jobs */
-    int cur_num = -1, prev_num = -1;
-    for(int i = 0; i < MAX_JOBS; i++){
-        if(!job_table[i].active) continue;
-        int jn = job_table[i].job_number;
-        if(jn > cur_num){ prev_num = cur_num; cur_num = jn; }
-        else if(jn > prev_num){ prev_num = jn; }
-    }
-
-    /* print and remove done jobs in order */
     for(int pass = 1; pass < next_job_number; pass++){
         for(int i = 0; i < MAX_JOBS; i++){
             if(!job_table[i].active || job_table[i].job_number != pass) continue;
             if(!job_table[i].done) continue;
+
+            int cur_num = -1, prev_num = -1;
+            for(int k = 0; k < MAX_JOBS; k++){
+                if(!job_table[k].active) continue;
+                int jn = job_table[k].job_number;
+                if(jn > cur_num){ prev_num = cur_num; cur_num = jn; }
+                else if(jn > prev_num){ prev_num = jn; }
+            }
+
             char marker;
             if(job_table[i].job_number == cur_num)       marker = '+';
             else if(job_table[i].job_number == prev_num) marker = '-';
             else                                          marker = ' ';
+
             char display[4096];
             strncpy(display, job_table[i].command, sizeof(display)-1);
             display[sizeof(display)-1] = '\0';
             int dlen = strlen(display);
             if(dlen >= 2 && strcmp(display + dlen - 2, " &") == 0)
                 display[dlen - 2] = '\0';
+
             printf("[%d]%c  %-24s%s\n", job_table[i].job_number, marker, "Done", display);
+            fflush(stdout);
+
             free(job_table[i].command);
             job_table[i].command = NULL;
             job_table[i].active  = 0;
@@ -634,7 +624,6 @@ static void reap_jobs(void){
     }
 }
 
-/* Print all active (non-done) jobs — used by the jobs builtin. */
 static void print_jobs(void){
     int cur_num = -1, prev_num = -1;
     for(int i = 0; i < MAX_JOBS; i++){
@@ -663,21 +652,24 @@ int main(int argc, char *argv[]) {
     char *command;
 
     while(1){
-        reap_jobs();         /* print Done lines before showing the prompt */
+        reap_jobs();
         command = readline("$ ");
         if(!command) break;
         if(command[0] == '\0'){
             free(command); continue;
         }
 
+        add_history(command);
+
         char *args[100];
         int n = parseArgs(command, args, 100);
-        if(n == 0) continue;
+        if(n == 0){ free(command); continue; }
 
         char *cmd = args[0];
 
         if(strcmp(cmd, "exit") == 0){
             for(int j = 0; j < n; j++) free(args[j]);
+            free(command);
             break;
         }
         else if(strcmp(cmd, "echo") == 0){
@@ -688,13 +680,10 @@ int main(int argc, char *argv[]) {
             int fd;
             if(outfile){
                 save_fd = dup(target_fd);
-                if(append == 1) {
+                if(append == 1)
                     fd = open(outfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
-                }
-                else {
+                else
                     fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                }
-               
                 dup2(fd, target_fd);
                 close(fd);
                 free(outfile);
@@ -713,7 +702,7 @@ int main(int argc, char *argv[]) {
             }
         }
         else if(strcmp(cmd, "type") == 0){
-            if(n < 2){ for(int j=0;j<n;j++) free(args[j]); continue; }
+            if(n < 2){ for(int j=0;j<n;j++) free(args[j]); free(command); continue; }
             char *arg = args[1];
 
             if(isBuiltIn(arg)){
@@ -737,9 +726,7 @@ int main(int argc, char *argv[]) {
         }
         else if(strcmp(cmd, "complete") == 0){
             if(n >= 2 && strcmp(args[1], "-p") == 0){
-                if(n < 3){
-                    /* no command */
-                } else {
+                if(n >= 3){
                     const char *script = find_completion(args[2]);
                     if(script)
                         printf("complete -C '%s' %s\n", script, args[2]);
@@ -753,11 +740,10 @@ int main(int argc, char *argv[]) {
             }
         }
         else if(strcmp(cmd, "jobs") == 0){
-            reap_jobs();   /* mark & display Done entries first */
-            print_jobs();  /* then show what's still Running */
+            reap_jobs();
+            print_jobs();
         }
         else {
-            /* detect background operator & as last token */
             int background = 0;
             if(n > 0 && strcmp(args[n-1], "&") == 0){
                 background = 1;
@@ -778,12 +764,10 @@ int main(int argc, char *argv[]) {
                 pid_t pid = fork();
                 if(pid == 0){
                     if(outfile){
-                        if(append == 1) {
+                        if(append == 1)
                             fd = open(outfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
-                        }
-                        else {
+                        else
                             fd = open(outfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                        }
                         if(fd < 0){ perror("open"); exit(1); }
                         dup2(fd, target_fd);
                         close(fd);
@@ -796,7 +780,6 @@ int main(int argc, char *argv[]) {
                         int job_num = next_job_number++;
                         printf("[%d] %d\n", job_num, (int)pid);
                         fflush(stdout);
-                        /* build "cmd arg1 arg2 &" string for the job table */
                         char cmd_str[4096] = "";
                         for(int j = 0; j < n; j++){
                             if(j > 0) strncat(cmd_str, " ", sizeof(cmd_str)-strlen(cmd_str)-1);
@@ -814,7 +797,7 @@ int main(int argc, char *argv[]) {
         }
 
         for(int j = 0; j < n; j++) free(args[j]);
-            free(command);
+        free(command);
     }
 
     return 0;
