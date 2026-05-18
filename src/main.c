@@ -13,17 +13,7 @@ static const char *builtins[] = { "echo", "exit", "type", "pwd", "cd", "complete
 
 static int tab_press_count = 0;
 static int next_job_number = 1;
-static int alloc_job_number(void){
-    for(int n = 1; ; n++){
-        int taken = 0;
-        for(int i = 0; i < MAX_JOBS; i++){
-            if(job_table[i].active && job_table[i].job_number == n){
-                taken = 1; break;
-            }
-        }
-        if(!taken) return n;
-    }
-}
+
 #define MAX_JOBS 256
 typedef struct {
     int job_number;
@@ -35,6 +25,17 @@ typedef struct {
 
 static Job job_table[MAX_JOBS];
 static int job_count = 0;
+static int alloc_job_number(void){
+    for(int n = 1; ; n++){
+        int taken = 0;
+        for(int i = 0; i < MAX_JOBS; i++){
+            if(job_table[i].active && job_table[i].job_number == n){
+                taken = 1; break;
+            }
+        }
+        if(!taken) return n;
+    }
+}
 
 static void add_job(int job_number, pid_t pid, const char *command){
     for(int i = 0; i < MAX_JOBS; i++){
@@ -635,7 +636,7 @@ static void reap_jobs(void){
 }
 
 static void print_jobs(void){
-    /* First mark any exited jobs as done */
+  
     for(int i = 0; i < MAX_JOBS; i++){
         if(!job_table[i].active || job_table[i].done) continue;
         int status = 0;
