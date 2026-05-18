@@ -740,7 +740,7 @@ int main(int argc, char *argv[]) {
             }
         }
         else if(strcmp(cmd, "jobs") == 0){
-            reap_jobs();
+
             print_jobs();
         }
         else {
